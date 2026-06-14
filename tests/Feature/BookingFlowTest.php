@@ -286,6 +286,20 @@ class BookingFlowTest extends TestCase
             && $request['to'] === '31600000000');
     }
 
+    public function test_whatsapp_notification_goes_to_multiple_recipients(): void
+    {
+        Http::fake(['graph.facebook.com/*' => Http::response(['messages' => [['id' => 'x']]], 200)]);
+        config([
+            'whatsapp.token' => 'test-token',
+            'whatsapp.phone_number_id' => '123456',
+            'whatsapp.to' => '31611111111, 31622222222',
+        ]);
+
+        $this->post('/aanvragen', $this->validPayload())->assertRedirect('/aanvragen');
+
+        Http::assertSentCount(2);
+    }
+
     public function test_no_whatsapp_notification_without_config(): void
     {
         Http::fake();

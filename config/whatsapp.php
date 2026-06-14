@@ -15,6 +15,8 @@ return [
     */
     'token' => env('WHATSAPP_TOKEN'),
     'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
+    // Eén of meer ontvangers, komma-gescheiden (bv. "31611111111,31622222222").
+    // In Meta dev-modus moet elk nummer als test-recipient geverifieerd zijn.
     'to' => env('WHATSAPP_TO'),
     'template' => env('WHATSAPP_TEMPLATE', 'hello_world'),
     'language' => env('WHATSAPP_LANG', 'en_US'),
