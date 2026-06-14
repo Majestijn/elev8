@@ -10,6 +10,8 @@ export type JobType =
 /** Eén object dat omhoog moet; afmetingen in cm zijn optioneel. */
 export interface BookingItem {
   type: JobType;
+  /** Aantal van dit object (≥ 1). */
+  quantity: number;
   length: number | null;
   width: number | null;
   height: number | null;
@@ -35,6 +37,8 @@ export interface Booking {
   date: string; // ISO date
   timeSlot: string;
   status: string;
+  /** Werkelijke duur op locatie in minuten (door Chris ingevuld bij afronden). */
+  durationMinutes: number | null;
   handledAt: string | null;
   createdAt: string;
 }

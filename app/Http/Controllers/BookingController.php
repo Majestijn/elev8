@@ -68,6 +68,7 @@ class BookingController extends Controller
             'timeSlot' => ['required', 'string', Rule::in(BookingSlots::keys())],
             'items' => ['required', 'array', 'min:1', 'max:20'],
             'items.*.type' => ['required', 'string', Rule::in(self::JOB_TYPES)],
+            'items.*.quantity' => ['nullable', 'integer', 'min:1', 'max:99'],
             'items.*.length' => ['nullable', 'integer', 'min:1', 'max:2000'],
             'items.*.width' => ['nullable', 'integer', 'min:1', 'max:2000'],
             'items.*.height' => ['nullable', 'integer', 'min:1', 'max:2000'],
@@ -154,6 +155,7 @@ class BookingController extends Controller
     {
         return array_values(array_map(fn (array $item) => [
             'type' => $item['type'],
+            'quantity' => $item['quantity'] ?? 1,
             'length' => $item['length'] ?? null,
             'width' => $item['width'] ?? null,
             'height' => $item['height'] ?? null,

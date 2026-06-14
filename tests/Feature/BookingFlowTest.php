@@ -28,8 +28,8 @@ class BookingFlowTest extends TestCase
             'date' => now()->addDay()->toDateString(),
             'timeSlot' => '10:00',
             'items' => [
-                ['type' => 'Piano', 'length' => 180, 'width' => 60, 'height' => 120],
-                ['type' => 'Bank'],
+                ['type' => 'Piano', 'quantity' => 1, 'length' => 180, 'width' => 60, 'height' => 120],
+                ['type' => 'Bank', 'quantity' => 2],
             ],
             'siteConditions' => ['trees', 'narrow_street'],
             'description' => '3e verdieping, grachtenpand',
@@ -104,8 +104,10 @@ class BookingFlowTest extends TestCase
         $this->assertSame('Jan de Vries', $booking->customer_name);
         $this->assertCount(2, $booking->items);
         $this->assertSame('Piano', $booking->items[0]['type']);
+        $this->assertSame(1, $booking->items[0]['quantity']);
         $this->assertSame(180, $booking->items[0]['length']);
         $this->assertSame('Bank', $booking->items[1]['type']);
+        $this->assertSame(2, $booking->items[1]['quantity']);
         $this->assertNull($booking->items[1]['length']);
         $this->assertSame(['trees', 'narrow_street'], $booking->site_conditions);
         $this->assertSame(250, $booking->heaviest_object_kg);
@@ -213,6 +215,30 @@ class BookingFlowTest extends TestCase
             ->assertSessionHasErrors('items.0.type');
 
         $this->assertDatabaseCount('bookings', 0);
+    }
+
+    public function test_item_quantity_must_be_positive(): void
+    {
+        $this->from('/aanvragen')
+            ->post('/aanvragen', $this->validPayload([
+                'items' => [['type' => 'Bank', 'quantity' => 0]],
+            ]))
+            ->assertRedirect('/aanvragen')
+            ->assertSessionHasErrors('items.0.quantity');
+
+        $this->assertDatabaseCount('bookings', 0);
+    }
+
+    public function test_item_quantity_defaults_to_one_when_omitted(): void
+    {
+        // "Volledige verhuizing": geen aantal/afmetingen meegestuurd.
+        $this->post('/aanvragen', $this->validPayload([
+            'items' => [['type' => 'Volledige verhuizing']],
+        ]))->assertRedirect('/aanvragen');
+
+        $item = Booking::first()->items[0];
+        $this->assertSame(1, $item['quantity']);
+        $this->assertNull($item['length']);
     }
 
     public function test_floor_is_required_and_bounded(): void
@@ -337,6 +363,50 @@ class BookingFlowTest extends TestCase
         $booking = Booking::first();
 
         $this->post("/beheer/aanvragen/{$booking->id}/status", ['status' => 'contacted'])
+            ->assertForbidden();
+    }
+
+    public function test_duration_can_be_recorded_for_a_job(): void
+    {
+        $this->post('/aanvragen', $this->validPayload());
+        $booking = Booking::first();
+
+        $this->withSession(['inbox_authed' => true])
+            ->post("/beheer/aanvragen/{$booking->id}/duur", ['duration_minutes' => 150])
+            ->assertRedirect();
+
+        $this->assertSame(150, $booking->fresh()->duration_minutes);
+    }
+
+    public function test_duration_can_be_cleared(): void
+    {
+        $this->post('/aanvragen', $this->validPayload());
+        $booking = Booking::first();
+        $booking->update(['duration_minutes' => 120]);
+
+        $this->withSession(['inbox_authed' => true])
+            ->post("/beheer/aanvragen/{$booking->id}/duur", ['duration_minutes' => null])
+            ->assertRedirect();
+
+        $this->assertNull($booking->fresh()->duration_minutes);
+    }
+
+    public function test_unrealistic_duration_is_rejected(): void
+    {
+        $this->post('/aanvragen', $this->validPayload());
+        $booking = Booking::first();
+
+        $this->withSession(['inbox_authed' => true])
+            ->post("/beheer/aanvragen/{$booking->id}/duur", ['duration_minutes' => 5000])
+            ->assertSessionHasErrors('duration_minutes');
+    }
+
+    public function test_duration_update_requires_auth(): void
+    {
+        $this->post('/aanvragen', $this->validPayload());
+        $booking = Booking::first();
+
+        $this->post("/beheer/aanvragen/{$booking->id}/duur", ['duration_minutes' => 90])
             ->assertForbidden();
     }
 

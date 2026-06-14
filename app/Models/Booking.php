@@ -26,6 +26,7 @@ class Booking extends Model
         'time_slot',
         'status',
         'handled_at',
+        'duration_minutes',
     ];
 
     protected $casts = [
@@ -37,6 +38,7 @@ class Booking extends Model
         'heaviest_object_kg' => 'integer',
         'floor' => 'integer',
         'height_meters' => 'integer',
+        'duration_minutes' => 'integer',
     ];
 
     /**
@@ -67,6 +69,7 @@ class Booking extends Model
             'date' => optional($this->preferred_date)->toDateString(),
             'timeSlot' => $this->time_slot,
             'status' => $this->status,
+            'durationMinutes' => $this->duration_minutes,
             'handledAt' => optional($this->handled_at)->toIso8601String(),
             'createdAt' => optional($this->created_at)->toIso8601String(),
         ];

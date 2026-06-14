@@ -8,7 +8,9 @@ import {
   Hammer,
   ImagePlus,
   Info,
+  Minus,
   Music,
+  Plus,
   Package,
   PackageOpen,
   Refrigerator,
@@ -44,20 +46,30 @@ const STEP_LABELS = [
 const FLOOR_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1);
 const MAX_PHOTOS = 5;
 
+/**
+ * `quantity`   : toon een aantal-teller (telbare objecten).
+ * `dimensions` : toon de afmetingen-velden. Beide uit voor "Volledige
+ *                verhuizing" — dat gaat niet om één specifiek item.
+ */
 const JOB_OPTIONS: Array<{
   value: JobType;
   title: string;
   description: string;
   icon: React.ReactNode;
+  quantity: boolean;
+  dimensions: boolean;
 }> = [
-  { value: "Bank", title: "Bank of meubel", description: "Eén of twee zware meubels", icon: <Sofa size={28} /> },
-  { value: "Koelkast", title: "Koelkast", description: "Ook Amerikaanse maten", icon: <Refrigerator size={28} /> },
-  { value: "Wasmachine", title: "Wasmachine of droger", description: "Standaard witgoed", icon: <WashingMachine size={28} /> },
-  { value: "Volledige verhuizing", title: "Volledige verhuizing", description: "Studio tot 3-kamer appartement", icon: <Truck size={28} /> },
-  { value: "Piano", title: "Piano of vleugel", description: "Zware, kwetsbare last", icon: <Music size={28} /> },
-  { value: "Bouwmaterialen", title: "Bouwmaterialen", description: "Gips, cement, isolatie, paletten", icon: <Hammer size={28} /> },
-  { value: "Anders", title: "Iets anders", description: "Vertel het ons hieronder", icon: <Package size={28} /> },
+  { value: "Bank", title: "Bank of meubel", description: "Eén of meerdere zware meubels", icon: <Sofa size={28} />, quantity: true, dimensions: true },
+  { value: "Koelkast", title: "Koelkast", description: "Ook Amerikaanse maten", icon: <Refrigerator size={28} />, quantity: true, dimensions: true },
+  { value: "Wasmachine", title: "Wasmachine of droger", description: "Standaard witgoed", icon: <WashingMachine size={28} />, quantity: true, dimensions: true },
+  { value: "Volledige verhuizing", title: "Volledige verhuizing", description: "Studio tot 3-kamer appartement", icon: <Truck size={28} />, quantity: false, dimensions: false },
+  { value: "Piano", title: "Piano of vleugel", description: "Zware, kwetsbare last", icon: <Music size={28} />, quantity: true, dimensions: true },
+  { value: "Bouwmaterialen", title: "Bouwmaterialen", description: "Gips, cement, isolatie, paletten", icon: <Hammer size={28} />, quantity: true, dimensions: true },
+  { value: "Anders", title: "Iets anders", description: "Vertel het ons hieronder", icon: <Package size={28} />, quantity: true, dimensions: true },
 ];
+
+/** Eén regel van JOB_OPTIONS. */
+type JobOption = (typeof JOB_OPTIONS)[number];
 
 const WEIGHT_PRESETS = [25, 50, 100, 150, 250];
 
@@ -96,6 +108,7 @@ function shortDate(iso: string): string {
 /** Eén geselecteerd object; afmetingen in cm zijn optioneel (lege string = leeg). */
 interface ItemDraft {
   type: JobType;
+  quantity: number;
   length: number | "";
   width: number | "";
   height: number | "";
@@ -200,7 +213,7 @@ export default function BookingFlow() {
       "items",
       isSelected(type)
         ? data.items.filter((it) => it.type !== type)
-        : [...data.items, { type, length: "", width: "", height: "" }]
+        : [...data.items, { type, quantity: 1, length: "", width: "", height: "" }]
     );
   }
   function updateDims(type: JobType, patch: Partial<ItemDraft>) {
@@ -226,6 +239,7 @@ export default function BookingFlow() {
       ...d,
       items: d.items.map((it) => ({
         type: it.type,
+        quantity: it.quantity,
         length: it.length === "" ? null : it.length,
         width: it.width === "" ? null : it.width,
         height: it.height === "" ? null : it.height,
@@ -751,8 +765,8 @@ function StepJob({
     <div>
       <CustomerLabel>Welke objecten moeten omhoog?</CustomerLabel>
       <p className="mt-1 text-[12px] text-slate-500">
-        Kies alles wat de lift in moet. Bij elk gekozen object kun je optioneel
-        de afmetingen invullen.
+        Kies alles wat de lift in moet. Per object kun je het aantal opgeven en
+        (optioneel) de afmetingen.
       </p>
 
       <div className="mt-3 flex flex-col gap-3">
@@ -834,7 +848,7 @@ function ObjectCard({
   onToggle,
   onDims,
 }: {
-  option: { value: JobType; title: string; description: string; icon: React.ReactNode };
+  option: JobOption;
   selected: boolean;
   item?: ItemDraft;
   onToggle: () => void;
@@ -874,21 +888,79 @@ function ObjectCard({
         </span>
       </button>
 
-      {selected && item && (
-        <div className="border-t-2 border-sky-200 px-5 py-4">
-          <div className="text-[12px] font-medium text-ink-2">
-            Afmetingen (optioneel)
-          </div>
-          <div className="mt-1.5 flex items-center gap-2">
-            <DimInput value={item.length} placeholder="L" onChange={(v) => onDims({ length: v })} />
-            <span className="text-slate-400">×</span>
-            <DimInput value={item.width} placeholder="B" onChange={(v) => onDims({ width: v })} />
-            <span className="text-slate-400">×</span>
-            <DimInput value={item.height} placeholder="H" onChange={(v) => onDims({ height: v })} />
-            <span className="ml-1 text-[13px] text-slate-400">cm</span>
-          </div>
+      {selected && item && (option.quantity || option.dimensions) && (
+        <div className="space-y-3 border-t-2 border-sky-200 px-5 py-4">
+          {option.quantity && (
+            <div>
+              <div className="text-[12px] font-medium text-ink-2">Aantal</div>
+              <div className="mt-1.5">
+                <QuantityStepper
+                  value={item.quantity}
+                  onChange={(v) => onDims({ quantity: v })}
+                />
+              </div>
+            </div>
+          )}
+          {option.dimensions && (
+            <div>
+              <div className="text-[12px] font-medium text-ink-2">
+                {item.quantity > 1
+                  ? "Afmeting van het grootste exemplaar (optioneel)"
+                  : "Afmetingen (optioneel)"}
+              </div>
+              <div className="mt-1.5 flex items-center gap-2">
+                <DimInput value={item.length} placeholder="L" onChange={(v) => onDims({ length: v })} />
+                <span className="text-slate-400">×</span>
+                <DimInput value={item.width} placeholder="B" onChange={(v) => onDims({ width: v })} />
+                <span className="text-slate-400">×</span>
+                <DimInput value={item.height} placeholder="H" onChange={(v) => onDims({ height: v })} />
+                <span className="ml-1 text-[13px] text-slate-400">cm</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+function QuantityStepper({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+}) {
+  const set = (n: number) => onChange(Math.max(1, Math.min(99, n)));
+  return (
+    <div className="inline-flex items-center rounded-xl border-2 border-slate-200 bg-paper">
+      <button
+        type="button"
+        onClick={() => set(value - 1)}
+        disabled={value <= 1}
+        aria-label="Eén minder"
+        className="flex h-11 w-11 items-center justify-center text-navy transition-colors hover:text-blue disabled:opacity-30"
+      >
+        <Minus size={16} />
+      </button>
+      <input
+        type="number"
+        min={1}
+        max={99}
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => set(parseInt(e.target.value, 10) || 1)}
+        className="h-11 w-12 border-x-2 border-slate-200 bg-transparent text-center text-[15px] font-semibold text-navy focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      />
+      <button
+        type="button"
+        onClick={() => set(value + 1)}
+        disabled={value >= 99}
+        aria-label="Eén meer"
+        className="flex h-11 w-11 items-center justify-center text-navy transition-colors hover:text-blue disabled:opacity-30"
+      >
+        <Plus size={16} />
+      </button>
     </div>
   );
 }
@@ -1215,6 +1287,7 @@ function Sidebar({ data, slots }: { data: FormData; slots: Slot[] }) {
                       const dims = formatDims(it);
                       return (
                         <li key={it.type}>
+                          {it.quantity > 1 ? `${it.quantity}× ` : ""}
                           {it.type}
                           {dims && <span className="text-ink-3"> · {dims}</span>}
                         </li>
@@ -1342,6 +1415,7 @@ function StepReview({
                 const dims = formatDims(it);
                 return (
                   <li key={it.type}>
+                    {it.quantity > 1 ? `${it.quantity}× ` : ""}
                     {it.type}
                     {dims && <span className="text-ink-3"> · {dims}</span>}
                   </li>

@@ -21,3 +21,5 @@ Route::post('/beheer/login', [InboxController::class, 'login'])->name('beheer.lo
 Route::post('/beheer/logout', [InboxController::class, 'logout'])->name('beheer.logout');
 Route::post('/beheer/aanvragen/{booking}/status', [InboxController::class, 'updateStatus'])
     ->name('beheer.status');
+Route::post('/beheer/aanvragen/{booking}/duur', [InboxController::class, 'updateDuration'])
+    ->name('beheer.duration');

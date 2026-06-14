@@ -83,6 +83,24 @@ class InboxController extends Controller
         return back();
     }
 
+    /**
+     * Leg de werkelijke duur (op locatie, in minuten) van een afgeronde klus
+     * vast. Vroege dataverzameling voor latere duur-inschatting per klus.
+     */
+    public function updateDuration(Request $request, Booking $booking): RedirectResponse
+    {
+        abort_unless($this->authed($request), 403);
+
+        $validated = $request->validate([
+            // 0..1440 min (max 24u); leeg = wissen.
+            'duration_minutes' => ['nullable', 'integer', 'min:1', 'max:1440'],
+        ]);
+
+        $booking->update(['duration_minutes' => $validated['duration_minutes'] ?? null]);
+
+        return back();
+    }
+
     private function authed(Request $request): bool
     {
         return (bool) $request->session()->get('inbox_authed', false);

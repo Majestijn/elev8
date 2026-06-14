@@ -12,6 +12,7 @@ import {
   MapPin,
   Package,
   Phone,
+  Timer,
   Weight,
 } from "lucide-react";
 import { LogoMark } from "@/components/Brand";
@@ -290,8 +291,114 @@ function RequestCard({ booking: b }: { booking: Booking }) {
           </Field>
         )}
       </div>
+
+      {b.status === "completed" && <DurationEditor booking={b} />}
     </div>
   );
+}
+
+/** Leg de werkelijke duur op locatie vast bij een afgeronde klus. */
+function DurationEditor({ booking: b }: { booking: Booking }) {
+  const [hours, setHours] = useState(
+    b.durationMinutes ? Math.floor(b.durationMinutes / 60) : 0
+  );
+  const [minutes, setMinutes] = useState(
+    b.durationMinutes ? b.durationMinutes % 60 : 0
+  );
+  const [saved, setSaved] = useState(false);
+
+  const total = hours * 60 + minutes;
+  const dirty = total !== (b.durationMinutes ?? 0);
+
+  function save() {
+    router.post(
+      `/beheer/aanvragen/${b.id}/duur`,
+      { duration_minutes: total > 0 ? total : null },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          setSaved(true);
+          window.setTimeout(() => setSaved(false), 2500);
+        },
+      }
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
+      <div className="flex items-center gap-2 text-[13px] font-semibold text-navy">
+        <Timer size={15} className="text-blue" />
+        Hoe lang duurde de klus?{" "}
+        <span className="font-normal text-ink-2">(werktijd op locatie)</span>
+      </div>
+      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        <DurationInput value={hours} onChange={setHours} max={24} suffix="uur" />
+        <DurationInput value={minutes} onChange={setMinutes} max={59} suffix="min" />
+        <button
+          type="button"
+          onClick={save}
+          disabled={!dirty}
+          className="ml-1 inline-flex h-10 items-center rounded-xl bg-green px-4 text-[13px] font-bold text-white transition-all hover:bg-green-dark active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Opslaan
+        </button>
+        {saved ? (
+          <span className="text-[12px] font-semibold text-green-deep">
+            Opgeslagen ✓
+          </span>
+        ) : (
+          b.durationMinutes != null &&
+          !dirty && (
+            <span className="text-[12px] text-ink-2">
+              Vastgelegd: {formatDuration(b.durationMinutes)}
+            </span>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DurationInput({
+  value,
+  onChange,
+  max,
+  suffix,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  max: number;
+  suffix: string;
+}) {
+  return (
+    <div className="relative">
+      <input
+        type="number"
+        min={0}
+        max={max}
+        inputMode="numeric"
+        value={value}
+        onChange={(e) =>
+          onChange(
+            Math.max(0, Math.min(max, parseInt(e.target.value, 10) || 0))
+          )
+        }
+        className="h-10 w-[92px] rounded-xl border-2 border-slate-200 bg-white pl-3 pr-11 text-[14px] font-semibold text-navy transition-colors hover:border-slate-300 focus:border-blue focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      />
+      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[12px] font-semibold text-slate-400">
+        {suffix}
+      </span>
+    </div>
+  );
+}
+
+/** Minuten → leesbaar, bv. "2 u 30 min" / "45 min" / "3 u". */
+function formatDuration(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (h === 0) return `${m} min`;
+  if (m === 0) return `${h} u`;
+  return `${h} u ${m} min`;
 }
 
 /** Formatteer één object voor de inbox, bv. "Piano (180×60×120 cm)". */
@@ -299,7 +406,8 @@ function itemLine(it: BookingItem): string {
   const dims = [it.length, it.width, it.height];
   const hasDims = dims.some((d) => d != null);
   const dimStr = hasDims ? ` (${dims.map((d) => d ?? "?").join("×")} cm)` : "";
-  return `${it.type}${dimStr}`;
+  const qtyStr = it.quantity > 1 ? `${it.quantity}× ` : "";
+  return `${qtyStr}${it.type}${dimStr}`;
 }
 
 function Field({
