@@ -898,10 +898,12 @@ function SidebarSection({
 }) {
   return (
     <div>
-      <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-blue/80">
+      <div className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-blue/80">
         {title}
       </div>
-      <div className="mt-2.5 space-y-3.5 text-[13px]">{children}</div>
+      <div className="space-y-3.5 rounded-xl bg-white/60 px-4 py-3.5 text-[13px]">
+        {children}
+      </div>
     </div>
   );
 }
