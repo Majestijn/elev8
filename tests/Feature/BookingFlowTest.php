@@ -38,16 +38,23 @@ class BookingFlowTest extends TestCase
 
     public function test_booking_flow_page_renders(): void
     {
-        $this->get('/')
+        $this->get('/aanvragen')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page->component('BookingFlow'));
     }
 
+    public function test_landing_page_renders(): void
+    {
+        $this->get('/')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('Landing'));
+    }
+
     public function test_customer_can_submit_a_request_and_it_persists(): void
     {
-        $response = $this->post('/', $this->validPayload());
+        $response = $this->post('/aanvragen', $this->validPayload());
 
-        $response->assertRedirect('/');
+        $response->assertRedirect('/aanvragen');
         $response->assertSessionHas('bookingCode');
 
         $this->assertDatabaseCount('bookings', 1);
@@ -70,13 +77,13 @@ class BookingFlowTest extends TestCase
 
     public function test_invalid_request_is_rejected(): void
     {
-        $this->from('/')
-            ->post('/', $this->validPayload([
+        $this->from('/aanvragen')
+            ->post('/aanvragen', $this->validPayload([
                 'customerName' => '',
                 'customerPhone' => '',
                 'heaviestObjectKg' => 0,
             ]))
-            ->assertRedirect('/')
+            ->assertRedirect('/aanvragen')
             ->assertSessionHasErrors(['customerName', 'customerPhone', 'heaviestObjectKg']);
 
         $this->assertDatabaseCount('bookings', 0);
@@ -100,7 +107,7 @@ class BookingFlowTest extends TestCase
     public function test_correct_password_grants_access_and_lists_requests(): void
     {
         // Een binnengekomen aanvraag
-        $this->post('/', $this->validPayload());
+        $this->post('/aanvragen', $this->validPayload());
 
         $this->post('/elev8/login', ['password' => 'elev8'])
             ->assertRedirect('/elev8');
@@ -118,9 +125,9 @@ class BookingFlowTest extends TestCase
 
     public function test_at_least_one_object_is_required(): void
     {
-        $this->from('/')
-            ->post('/', $this->validPayload(['items' => []]))
-            ->assertRedirect('/')
+        $this->from('/aanvragen')
+            ->post('/aanvragen', $this->validPayload(['items' => []]))
+            ->assertRedirect('/aanvragen')
             ->assertSessionHasErrors('items');
 
         $this->assertDatabaseCount('bookings', 0);
@@ -128,11 +135,11 @@ class BookingFlowTest extends TestCase
 
     public function test_object_without_type_is_rejected(): void
     {
-        $this->from('/')
-            ->post('/', $this->validPayload([
+        $this->from('/aanvragen')
+            ->post('/aanvragen', $this->validPayload([
                 'items' => [['length' => 100]],
             ]))
-            ->assertRedirect('/')
+            ->assertRedirect('/aanvragen')
             ->assertSessionHasErrors('items.0.type');
 
         $this->assertDatabaseCount('bookings', 0);
@@ -140,14 +147,14 @@ class BookingFlowTest extends TestCase
 
     public function test_floor_is_required_and_bounded(): void
     {
-        $this->from('/')
-            ->post('/', $this->validPayload(['floor' => null]))
-            ->assertRedirect('/')
+        $this->from('/aanvragen')
+            ->post('/aanvragen', $this->validPayload(['floor' => null]))
+            ->assertRedirect('/aanvragen')
             ->assertSessionHasErrors('floor');
 
-        $this->from('/')
-            ->post('/', $this->validPayload(['floor' => 25]))
-            ->assertRedirect('/')
+        $this->from('/aanvragen')
+            ->post('/aanvragen', $this->validPayload(['floor' => 25]))
+            ->assertRedirect('/aanvragen')
             ->assertSessionHasErrors('floor');
 
         $this->assertDatabaseCount('bookings', 0);
@@ -155,25 +162,25 @@ class BookingFlowTest extends TestCase
 
     public function test_height_meters_is_optional(): void
     {
-        $this->post('/', $this->validPayload(['heightMeters' => null]))
-            ->assertRedirect('/');
+        $this->post('/aanvragen', $this->validPayload(['heightMeters' => null]))
+            ->assertRedirect('/aanvragen');
 
         $this->assertNull(Booking::first()->height_meters);
     }
 
     public function test_site_conditions_are_optional(): void
     {
-        $this->post('/', $this->validPayload(['siteConditions' => []]))
-            ->assertRedirect('/');
+        $this->post('/aanvragen', $this->validPayload(['siteConditions' => []]))
+            ->assertRedirect('/aanvragen');
 
         $this->assertSame([], Booking::first()->site_conditions);
     }
 
     public function test_invalid_site_condition_is_rejected(): void
     {
-        $this->from('/')
-            ->post('/', $this->validPayload(['siteConditions' => ['lava']]))
-            ->assertRedirect('/')
+        $this->from('/aanvragen')
+            ->post('/aanvragen', $this->validPayload(['siteConditions' => ['lava']]))
+            ->assertRedirect('/aanvragen')
             ->assertSessionHasErrors('siteConditions.0');
 
         $this->assertDatabaseCount('bookings', 0);
@@ -183,12 +190,12 @@ class BookingFlowTest extends TestCase
     {
         Storage::fake('public');
 
-        $this->post('/', $this->validPayload([
+        $this->post('/aanvragen', $this->validPayload([
             'photos' => [
                 UploadedFile::fake()->create('straat.jpg', 200, 'image/jpeg'),
                 UploadedFile::fake()->create('gevel.png', 200, 'image/png'),
             ],
-        ]))->assertRedirect('/');
+        ]))->assertRedirect('/aanvragen');
 
         $booking = Booking::first();
         $this->assertCount(2, $booking->photos);
@@ -199,9 +206,9 @@ class BookingFlowTest extends TestCase
     {
         Storage::fake('public');
 
-        $this->post('/', $this->validPayload([
+        $this->post('/aanvragen', $this->validPayload([
             'photos' => [UploadedFile::fake()->create('iphone.heic', 200, 'image/heic')],
-        ]))->assertRedirect('/');
+        ]))->assertRedirect('/aanvragen');
 
         $this->assertCount(1, Booking::first()->photos);
     }
@@ -210,13 +217,13 @@ class BookingFlowTest extends TestCase
     {
         Storage::fake('public');
 
-        $this->from('/')
-            ->post('/', $this->validPayload([
+        $this->from('/aanvragen')
+            ->post('/aanvragen', $this->validPayload([
                 'photos' => [
                     UploadedFile::fake()->create('document.pdf', 100, 'application/pdf'),
                 ],
             ]))
-            ->assertRedirect('/')
+            ->assertRedirect('/aanvragen')
             ->assertSessionHasErrors('photos.0');
 
         $this->assertDatabaseCount('bookings', 0);
@@ -224,7 +231,7 @@ class BookingFlowTest extends TestCase
 
     public function test_request_can_be_marked_handled(): void
     {
-        $this->post('/', $this->validPayload());
+        $this->post('/aanvragen', $this->validPayload());
         $booking = Booking::first();
 
         $this->withSession(['elev8_authed' => true])
@@ -242,7 +249,7 @@ class BookingFlowTest extends TestCase
 
     public function test_handle_action_requires_auth(): void
     {
-        $this->post('/', $this->validPayload());
+        $this->post('/aanvragen', $this->validPayload());
         $booking = Booking::first();
 
         $this->post("/elev8/aanvragen/{$booking->id}/handled", ['handled' => true])

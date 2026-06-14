@@ -30,6 +30,14 @@ class BookingController extends Controller
     ];
 
     /**
+     * Landingspagina op urbanlift.nl met de CTA naar de aanvraagflow.
+     */
+    public function landing(): Response
+    {
+        return Inertia::render('Landing');
+    }
+
+    /**
      * Publieke aanvraag-flow — de link die Chris naar zijn klanten stuurt.
      */
     public function create(): Response
@@ -112,7 +120,7 @@ class BookingController extends Controller
             'status' => 'requested',
         ]);
 
-        return redirect('/')->with('bookingCode', $booking->code);
+        return redirect('/aanvragen')->with('bookingCode', $booking->code);
     }
 
     /**

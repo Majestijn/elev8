@@ -190,7 +190,7 @@ export default function BookingFlow() {
         height: it.height === "" ? null : it.height,
       })),
     }));
-    post("/", {
+    post("/aanvragen", {
       preserveScroll: true,
       onError: () => setStep(0),
     });
@@ -1241,7 +1241,7 @@ function DoneScreen({ code }: { code: string }) {
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <button
-              onClick={() => router.get("/")}
+              onClick={() => router.get("/aanvragen")}
               className="inline-flex h-12 items-center gap-2 rounded-xl bg-green px-7 text-[15px] font-bold text-white transition-all hover:bg-green-dark active:scale-[0.98]"
             >
               Nog een aanvraag doen
