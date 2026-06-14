@@ -90,7 +90,7 @@ class WhatsAppNotifier
         $types = collect($booking->items ?? [])->pluck('type')->implode(', ');
         $place = $booking->city ?: $booking->postcode;
         $when = Carbon::parse($booking->preferred_date)->format('d-m-Y').' '.$booking->time_slot;
-        $url = rtrim((string) config('app.url'), '/').'/elev8';
+        $url = rtrim((string) config('app.url'), '/').'/beheer';
 
         return "🚚 Nieuwe UrbanLift-aanvraag\n"
             ."Van: {$booking->customer_name}\n"

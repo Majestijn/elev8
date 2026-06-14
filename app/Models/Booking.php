@@ -55,7 +55,7 @@ class Booking extends Model
             'items' => $this->items ?? [],
             'siteConditions' => $this->site_conditions ?? [],
             'photos' => collect($this->photos ?? [])
-                ->map(fn (string $path) => Storage::disk(config('elev8.photo_disk'))->url($path))
+                ->map(fn (string $path) => Storage::disk(config('inbox.photo_disk'))->url($path))
                 ->all(),
             'description' => $this->description,
             'heaviestObjectKg' => $this->heaviest_object_kg,

@@ -10,7 +10,7 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class Elev8Controller extends Controller
+class InboxController extends Controller
 {
     /** Statussen die Chris in de inbox kan zetten (de pijplijn). */
     public const STATUSES = [
@@ -28,7 +28,7 @@ class Elev8Controller extends Controller
     public function index(Request $request): Response
     {
         if (! $this->authed($request)) {
-            return Inertia::render('Elev8Login');
+            return Inertia::render('InboxLogin');
         }
 
         $bookings = Booking::orderByDesc('created_at')
@@ -36,7 +36,7 @@ class Elev8Controller extends Controller
             ->map(fn (Booking $b) => $b->toInertia())
             ->values();
 
-        return Inertia::render('Elev8Inbox', [
+        return Inertia::render('Inbox', [
             'bookings' => $bookings,
         ]);
     }
@@ -45,23 +45,23 @@ class Elev8Controller extends Controller
     {
         $request->validate(['password' => ['required', 'string']]);
 
-        if (! hash_equals((string) config('elev8.password'), (string) $request->input('password'))) {
+        if (! hash_equals((string) config('inbox.password'), (string) $request->input('password'))) {
             throw ValidationException::withMessages([
                 'password' => 'Onjuist wachtwoord, probeer het opnieuw.',
             ]);
         }
 
-        $request->session()->put('elev8_authed', true);
+        $request->session()->put('inbox_authed', true);
         $request->session()->regenerate();
 
-        return redirect('/elev8');
+        return redirect('/beheer');
     }
 
     public function logout(Request $request): RedirectResponse
     {
-        $request->session()->forget('elev8_authed');
+        $request->session()->forget('inbox_authed');
 
-        return redirect('/elev8');
+        return redirect('/beheer');
     }
 
     public function updateStatus(Request $request, Booking $booking): RedirectResponse
@@ -85,6 +85,6 @@ class Elev8Controller extends Controller
 
     private function authed(Request $request): bool
     {
-        return (bool) $request->session()->get('elev8_authed', false);
+        return (bool) $request->session()->get('inbox_authed', false);
     }
 }

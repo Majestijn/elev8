@@ -32,8 +32,8 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'bookingCode' => fn () => $request->session()->get('bookingCode'),
             ],
-            'elev8' => [
-                'authed' => (bool) $request->session()->get('elev8_authed', false),
+            'inbox' => [
+                'authed' => (bool) $request->session()->get('inbox_authed', false),
             ],
             // Alleen aan in debug-modus → demo-/testknoppen verschijnen niet in productie.
             'appDebug' => (bool) config('app.debug'),

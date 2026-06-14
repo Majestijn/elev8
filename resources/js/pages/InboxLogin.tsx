@@ -2,12 +2,12 @@ import { Head, useForm } from "@inertiajs/react";
 import { LogoMark } from "@/components/Brand";
 import { cn } from "@/lib/utils";
 
-export default function Elev8Login() {
+export default function InboxLogin() {
   const { data, setData, post, processing, errors } = useForm({ password: "" });
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    post("/elev8/login");
+    post("/beheer/login");
   }
 
   const error = errors.password;

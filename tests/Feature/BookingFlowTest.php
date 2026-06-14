@@ -92,16 +92,16 @@ class BookingFlowTest extends TestCase
 
     public function test_inbox_is_gated_behind_password(): void
     {
-        $this->get('/elev8')
+        $this->get('/beheer')
             ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->component('Elev8Login'));
+            ->assertInertia(fn (Assert $page) => $page->component('InboxLogin'));
     }
 
     public function test_wrong_password_is_rejected(): void
     {
-        $this->from('/elev8')
-            ->post('/elev8/login', ['password' => 'fout'])
-            ->assertRedirect('/elev8')
+        $this->from('/beheer')
+            ->post('/beheer/login', ['password' => 'fout'])
+            ->assertRedirect('/beheer')
             ->assertSessionHasErrors('password');
     }
 
@@ -110,13 +110,13 @@ class BookingFlowTest extends TestCase
         // Een binnengekomen aanvraag
         $this->post('/aanvragen', $this->validPayload());
 
-        $this->post('/elev8/login', ['password' => 'elev8'])
-            ->assertRedirect('/elev8');
+        $this->post('/beheer/login', ['password' => 'urbanlift'])
+            ->assertRedirect('/beheer');
 
-        $this->get('/elev8')
+        $this->get('/beheer')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Elev8Inbox')
+                ->component('Inbox')
                 ->has('bookings', 1)
                 ->where('bookings.0.customerName', 'Jan de Vries')
                 ->where('bookings.0.items.0.type', 'Piano')
@@ -236,16 +236,16 @@ class BookingFlowTest extends TestCase
         $booking = Booking::first();
         $this->assertSame('requested', $booking->status);
 
-        $this->withSession(['elev8_authed' => true])
-            ->post("/elev8/aanvragen/{$booking->id}/status", ['status' => 'contacted'])
+        $this->withSession(['inbox_authed' => true])
+            ->post("/beheer/aanvragen/{$booking->id}/status", ['status' => 'contacted'])
             ->assertRedirect();
 
         $booking->refresh();
         $this->assertSame('contacted', $booking->status);
         $this->assertNotNull($booking->handled_at);
 
-        $this->withSession(['elev8_authed' => true])
-            ->post("/elev8/aanvragen/{$booking->id}/status", ['status' => 'scheduled']);
+        $this->withSession(['inbox_authed' => true])
+            ->post("/beheer/aanvragen/{$booking->id}/status", ['status' => 'scheduled']);
 
         $this->assertSame('scheduled', $booking->fresh()->status);
     }
@@ -255,8 +255,8 @@ class BookingFlowTest extends TestCase
         $this->post('/aanvragen', $this->validPayload());
         $booking = Booking::first();
 
-        $this->withSession(['elev8_authed' => true])
-            ->post("/elev8/aanvragen/{$booking->id}/status", ['status' => 'banana'])
+        $this->withSession(['inbox_authed' => true])
+            ->post("/beheer/aanvragen/{$booking->id}/status", ['status' => 'banana'])
             ->assertSessionHasErrors('status');
 
         $this->assertSame('requested', $booking->fresh()->status);
@@ -267,7 +267,7 @@ class BookingFlowTest extends TestCase
         $this->post('/aanvragen', $this->validPayload());
         $booking = Booking::first();
 
-        $this->post("/elev8/aanvragen/{$booking->id}/status", ['status' => 'contacted'])
+        $this->post("/beheer/aanvragen/{$booking->id}/status", ['status' => 'contacted'])
             ->assertForbidden();
     }
 

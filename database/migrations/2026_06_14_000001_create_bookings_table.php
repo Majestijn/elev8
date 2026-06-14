@@ -39,7 +39,7 @@ return new class extends Migration
             $table->date('preferred_date');
             $table->string('time_slot');
 
-            // Status / opvolging door elev8
+            // Status / opvolging door UrbanLift
             $table->string('status')->default('requested');
             $table->timestamp('handled_at')->nullable();
 

@@ -36,7 +36,7 @@ const STATUS_META: Record<string, { label: string; pill: string }> = {
   cancelled: { label: "Geannuleerd", pill: "bg-slate-100 text-slate-500" },
 };
 
-export default function Elev8Inbox({ bookings }: { bookings: Booking[] }) {
+export default function Inbox({ bookings }: { bookings: Booking[] }) {
   const [tab, setTab] = useState<string>("requested");
 
   const sorted = useMemo(
@@ -69,7 +69,7 @@ export default function Elev8Inbox({ bookings }: { bookings: Booking[] }) {
             </span>
           </div>
           <button
-            onClick={() => router.post("/elev8/logout")}
+            onClick={() => router.post("/beheer/logout")}
             className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink-2 hover:text-blue"
           >
             <LogOut size={15} />
@@ -175,7 +175,7 @@ function RequestCard({ booking: b }: { booking: Booking }) {
   function setStatus(status: string) {
     if (status === b.status) return;
     router.post(
-      `/elev8/aanvragen/${b.id}/status`,
+      `/beheer/aanvragen/${b.id}/status`,
       { status },
       { preserveScroll: true }
     );

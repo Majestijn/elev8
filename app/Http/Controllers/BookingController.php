@@ -98,7 +98,7 @@ class BookingController extends Controller
         // Bewaar de foto's op de geconfigureerde disk (lokaal 'public', later bucket).
         $photoPaths = [];
         foreach ($request->file('photos', []) as $photo) {
-            $photoPaths[] = $photo->store('booking-photos', config('elev8.photo_disk'));
+            $photoPaths[] = $photo->store('booking-photos', config('inbox.photo_disk'));
         }
 
         $booking = Booking::create([
