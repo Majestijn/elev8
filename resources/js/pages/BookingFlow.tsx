@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Head, Link, router, useForm, usePage } from "@inertiajs/react";
 import {
   ArrowRight,
@@ -61,6 +61,38 @@ const JOB_OPTIONS: Array<{
 
 const WEIGHT_PRESETS = [25, 50, 100, 150, 250];
 
+/** Dagdeel; komt van de server (config/booking.php), met fallback hieronder. */
+interface Slot {
+  key: string;
+  label: string;
+  start: string;
+  end: string;
+}
+
+interface Suggestion {
+  date: string;
+  free: number;
+}
+
+const DEFAULT_SLOTS: Slot[] = [
+  { key: "ochtend", label: "Ochtend", start: "08:00", end: "12:00" },
+  { key: "middag", label: "Middag", start: "12:00", end: "17:00" },
+  { key: "avond", label: "Avond", start: "17:00", end: "21:00" },
+];
+
+function slotLabel(slots: Slot[], key: string): string {
+  return slots.find((s) => s.key === key)?.label ?? key;
+}
+
+/** Korte NL-datum voor de suggestie-chips, bv. "ma 22 jun". */
+function shortDate(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("nl-NL", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
+
 /** Eén geselecteerd object; afmetingen in cm zijn optioneel (lege string = leeg). */
 interface ItemDraft {
   type: JobType;
@@ -76,10 +108,18 @@ function tomorrowISO() {
   return t.toISOString().slice(0, 10);
 }
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 interface PageProps {
   flash?: { bookingCode?: string | null };
   /** Alleen true in debug-modus; toont de testdata-knop. */
   appDebug?: boolean;
+  /** Boekbare tijdvakken (uit config/booking.php). */
+  slots?: Slot[];
+  /** Staat de Google Calendar-beschikbaarheidsflow aan? */
+  calendarEnabled?: boolean;
 }
 
 interface FormData {
@@ -103,7 +143,8 @@ interface FormData {
 type SetData = <K extends keyof FormData>(key: K, value: FormData[K]) => void;
 
 export default function BookingFlow() {
-  const { flash, appDebug } = usePage<PageProps>().props;
+  const { flash, appDebug, slots, calendarEnabled } = usePage<PageProps>().props;
+  const timeSlots = slots && slots.length > 0 ? slots : DEFAULT_SLOTS;
   const [step, setStep] = useState<Step>(0);
 
   const { data, setData, post, processing, errors, transform } =
@@ -115,7 +156,7 @@ export default function BookingFlow() {
       street: "",
       city: "",
       date: tomorrowISO(),
-      timeSlot: "10:00",
+      timeSlot: "",
       floor: "",
       heightMeters: "",
       items: [],
@@ -241,7 +282,14 @@ export default function BookingFlow() {
                   <StepDetails data={data} setData={setData} errors={errors} />
                 </>
               )}
-              {step === 1 && <StepWhen data={data} setData={setData} />}
+              {step === 1 && (
+                <StepWhen
+                  data={data}
+                  setData={setData}
+                  slots={timeSlots}
+                  calendarEnabled={!!calendarEnabled}
+                />
+              )}
               {step === 2 && <StepFloor data={data} setData={setData} />}
               {step === 3 && (
                 <StepJob
@@ -259,13 +307,15 @@ export default function BookingFlow() {
                   onToggle={toggleCondition}
                 />
               )}
-              {step === 5 && <StepReview data={data} onEdit={setStep} />}
+              {step === 5 && (
+                <StepReview data={data} onEdit={setStep} slots={timeSlots} />
+              )}
             </div>
           </div>
           <BottomBar step={step} canContinue={canContinue && !processing} onPrimary={onPrimary} processing={processing} />
         </div>
 
-        {step < 5 && <Sidebar data={data} />}
+        {step < 5 && <Sidebar data={data} slots={timeSlots} />}
       </div>
     </div>
   );
@@ -427,7 +477,74 @@ function FieldError({ msg }: { msg: string }) {
 
 /* ───────────────────────────── STEP 2 — WANNEER ─────────────── */
 
-function StepWhen({ data, setData }: { data: FormData; setData: SetData }) {
+function StepWhen({
+  data,
+  setData,
+  slots,
+  calendarEnabled,
+}: {
+  data: FormData;
+  setData: SetData;
+  slots: Slot[];
+  calendarEnabled: boolean;
+}) {
+  const [availability, setAvailability] = useState<Record<
+    string,
+    boolean
+  > | null>(null);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Beschikbaarheid (Google Calendar) ophalen zodra de datum wijzigt.
+  // Alleen wanneer de agenda-flow aan staat; anders nooit een call doen.
+  useEffect(() => {
+    if (!calendarEnabled || !data.date) {
+      setAvailability(null);
+      setSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/beschikbaarheid?date=${encodeURIComponent(data.date)}`, {
+      headers: { Accept: "application/json" },
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed"))))
+      .then(
+        (json: {
+          available?: Record<string, boolean>;
+          suggestions?: Suggestion[];
+        }) => {
+          if (cancelled) return;
+          const map = json.available ?? null;
+          setAvailability(map);
+          setSuggestions(json.suggestions ?? []);
+          // Was het gekozen dagdeel intussen bezet? Deselecteer het.
+          if (data.timeSlot && map?.[data.timeSlot] === false) {
+            setData("timeSlot", "");
+          }
+        }
+      )
+      .catch(() => {
+        // Faalveilig: bij een fout behandelen we alle dagdelen als boekbaar.
+        if (!cancelled) {
+          setAvailability(null);
+          setSuggestions([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.date, calendarEnabled]);
+
+  const isAvailable = (key: string) =>
+    availability ? availability[key] !== false : true;
+  const allBusy =
+    availability !== null && slots.every((s) => availability[s.key] === false);
+
   return (
     <div className="space-y-7">
       <div>
@@ -435,30 +552,129 @@ function StepWhen({ data, setData }: { data: FormData; setData: SetData }) {
         <CustomerInput
           type="date"
           value={data.date}
+          min={todayISO()}
           onChange={(e) => setData("date", e.target.value)}
           className="mt-2 max-w-[260px]"
         />
       </div>
 
-      <div>
-        <CustomerLabel>Hoe laat zou het moeten beginnen?</CustomerLabel>
-        <div className="mt-2 grid grid-cols-4 gap-2">
-          {["08:00", "10:00", "13:00", "15:00"].map((t) => (
-            <SelectButton
-              key={t}
-              active={data.timeSlot === t}
-              onClick={() => setData("timeSlot", t)}
-              size="lg"
-            >
-              {t}
-            </SelectButton>
-          ))}
+      {!calendarEnabled ? (
+        // Simpele flow: vier vaste starttijden, geen beschikbaarheidscheck.
+        <div>
+          <CustomerLabel>Hoe laat zou het moeten beginnen?</CustomerLabel>
+          <div className="mt-2 grid grid-cols-4 gap-2">
+            {slots.map((s) => (
+              <SelectButton
+                key={s.key}
+                active={data.timeSlot === s.key}
+                onClick={() => setData("timeSlot", s.key)}
+                size="lg"
+              >
+                {s.label}
+              </SelectButton>
+            ))}
+          </div>
+          <p className="mt-3 text-[12px] text-slate-500">
+            We stemmen het exacte tijdstip samen met je af zodra we contact
+            opnemen.
+          </p>
         </div>
-        <p className="mt-3 text-[12px] text-slate-500">
-          We stemmen het exacte tijdstip samen met je af zodra we contact opnemen.
-        </p>
-      </div>
+      ) : (
+        // Agenda-flow: dagdelen met live beschikbaarheid + suggestie.
+        <div>
+          <CustomerLabel>Welk dagdeel komt je het beste uit?</CustomerLabel>
+          <div className="mt-2 grid grid-cols-3 gap-2.5">
+            {slots.map((s) => (
+              <DayPartButton
+                key={s.key}
+                slot={s}
+                active={data.timeSlot === s.key}
+                available={isAvailable(s.key)}
+                onClick={() => setData("timeSlot", s.key)}
+              />
+            ))}
+          </div>
+
+          {loading ? (
+            <p className="mt-3 text-[12px] text-slate-500">
+              Beschikbaarheid laden…
+            </p>
+          ) : (
+            <p className="mt-3 text-[12px] text-slate-500">
+              <span className="font-semibold text-red-500">
+                Rood doorgestreept
+              </span>{" "}
+              = al bezet. We stemmen het exacte tijdstip samen met je af zodra we
+              contact opnemen.
+            </p>
+          )}
+
+          {/* "Betere dag"-suggestie bij een (bijna) volle dag. */}
+          {!loading && suggestions.length > 0 && (
+            <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
+              <p className="text-[13px] font-semibold text-navy">
+                {allBusy ? "Deze dag zit vol." : "Op deze dag is weinig vrij."}{" "}
+                <span className="font-normal text-ink-2">
+                  Meer beschikbaar op:
+                </span>
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {suggestions.map((s) => (
+                  <button
+                    key={s.date}
+                    type="button"
+                    onClick={() => setData("date", s.date)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border-2 border-blue/30 bg-white px-3 py-1.5 text-[13px] font-semibold text-blue transition-colors hover:border-blue hover:bg-sky-100"
+                  >
+                    {shortDate(s.date)}
+                    <span className="text-[11px] font-bold text-green-deep">
+                      {s.free} vrij
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+/** Grote dagdeel-knop; rood doorgestreept wanneer bezet (niet klikbaar). */
+function DayPartButton({
+  slot,
+  active,
+  available,
+  onClick,
+}: {
+  slot: Slot;
+  active: boolean;
+  available: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={!available}
+      aria-disabled={!available}
+      onClick={onClick}
+      className={cn(
+        "flex h-[72px] flex-col items-center justify-center rounded-xl border-2 font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue/40",
+        !available
+          ? "cursor-not-allowed border-slate-200 bg-slate-50 text-red-400"
+          : active
+          ? "border-blue bg-sky-100 text-navy active:scale-[0.98]"
+          : "border-slate-200 bg-paper text-ink-2 hover:border-blue/40 hover:text-navy active:scale-[0.98]"
+      )}
+    >
+      <span className={cn("text-[15px]", !available && "text-red-500 line-through decoration-red-400 decoration-2")}>
+        {slot.label}
+      </span>
+      <span className={cn("mt-0.5 text-[11px] font-normal", !available ? "text-red-300 line-through decoration-red-300" : "text-slate-400")}>
+        {slot.start}–{slot.end}
+      </span>
+    </button>
   );
 }
 
@@ -953,7 +1169,7 @@ function formatDims(it: ItemDraft): string | null {
   return parts.map((p) => (p === "" ? "?" : p)).join("×") + " cm";
 }
 
-function Sidebar({ data }: { data: FormData }) {
+function Sidebar({ data, slots }: { data: FormData; slots: Slot[] }) {
   const items = data.items;
   const dash = <span className="text-slate-400">—</span>;
   const address =
@@ -977,7 +1193,7 @@ function Sidebar({ data }: { data: FormData }) {
           <SidebarSection title="Datum & tijd">
             <SRow label="Wanneer">
               {data.date ? formatDateLong(data.date) : dash}
-              {data.timeSlot ? ` · ${data.timeSlot}` : ""}
+              {data.timeSlot ? ` · ${slotLabel(slots, data.timeSlot)}` : ""}
             </SRow>
           </SidebarSection>
 
@@ -1077,9 +1293,11 @@ function SidebarSection({
 function StepReview({
   data,
   onEdit,
+  slots,
 }: {
   data: FormData;
   onEdit: (step: Step) => void;
+  slots: Slot[];
 }) {
   const address =
     [data.street, data.postcode, data.city].filter(Boolean).join(" · ") || "—";
@@ -1103,7 +1321,7 @@ function StepReview({
       <ReviewSection title="Datum & tijd" onEdit={() => onEdit(1)}>
         <ReviewRow label="Wanneer">
           {data.date ? formatDateLong(data.date) : "—"}
-          {data.timeSlot ? ` · ${data.timeSlot}` : ""}
+          {data.timeSlot ? ` · ${slotLabel(slots, data.timeSlot)}` : ""}
         </ReviewRow>
       </ReviewSection>
 

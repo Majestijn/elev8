@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Booking;
+use App\Services\Calendar\CalendarAvailability;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -41,7 +43,45 @@ class BookingFlowTest extends TestCase
     {
         $this->get('/aanvragen')
             ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->component('BookingFlow'));
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('BookingFlow')
+                ->where('calendarEnabled', false)
+                ->has('slots', 4)
+                ->where('slots.0.key', '08:00')
+            );
+    }
+
+    public function test_calendar_mode_renders_dayparts(): void
+    {
+        config(['booking.calendar_enabled' => true]);
+
+        $this->get('/aanvragen')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('BookingFlow')
+                ->where('calendarEnabled', true)
+                ->has('slots', 3)
+                ->where('slots.0.key', 'ochtend')
+            );
+    }
+
+    public function test_disabled_calendar_skips_the_busy_guard(): void
+    {
+        // Flag staat default uit. Zelfs met een volledig bezette agenda mag een
+        // boeking dan gewoon doorgaan (geen guard, geen Google-call).
+        $this->swap(CalendarAvailability::class, new class implements CalendarAvailability
+        {
+            public function busyPeriods(Carbon $from, Carbon $to): array
+            {
+                return [['start' => Carbon::parse($from), 'end' => Carbon::parse($to)]];
+            }
+        });
+
+        $this->post('/aanvragen', $this->validPayload())
+            ->assertRedirect('/aanvragen')
+            ->assertSessionHas('bookingCode');
+
+        $this->assertDatabaseCount('bookings', 1);
     }
 
     public function test_landing_page_renders(): void
@@ -74,6 +114,35 @@ class BookingFlowTest extends TestCase
         $this->assertSame('requested', $booking->status);
         $this->assertNull($booking->handled_at);
         $this->assertStringStartsWith('UL-', $booking->code);
+    }
+
+    public function test_booking_on_a_busy_slot_is_rejected(): void
+    {
+        config(['booking.calendar_enabled' => true]);
+
+        $date = now()->addDay()->toDateString();
+        $tz = config('booking.timezone');
+
+        // Agenda bezet 09:00–11:00 → overlapt het gekozen dagdeel Ochtend (08–12).
+        $this->swap(CalendarAvailability::class, new class($date, $tz) implements CalendarAvailability
+        {
+            public function __construct(private string $date, private string $tz) {}
+
+            public function busyPeriods(Carbon $from, Carbon $to): array
+            {
+                return [[
+                    'start' => Carbon::parse("{$this->date} 09:00", $this->tz),
+                    'end' => Carbon::parse("{$this->date} 11:00", $this->tz),
+                ]];
+            }
+        });
+
+        $this->from('/aanvragen')
+            ->post('/aanvragen', $this->validPayload(['date' => $date, 'timeSlot' => 'ochtend']))
+            ->assertRedirect('/aanvragen')
+            ->assertSessionHasErrors('timeSlot');
+
+        $this->assertDatabaseCount('bookings', 0);
     }
 
     public function test_invalid_request_is_rejected(): void

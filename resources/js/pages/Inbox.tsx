@@ -28,6 +28,13 @@ const STATUS_ORDER = [
   "cancelled",
 ] as const;
 
+/** Dagdeel-keys → leesbaar label (spiegelt config/booking.php). */
+const SLOT_LABELS: Record<string, string> = {
+  ochtend: "Ochtend",
+  middag: "Middag",
+  avond: "Avond",
+};
+
 const STATUS_META: Record<string, { label: string; pill: string }> = {
   requested: { label: "Nieuw", pill: "bg-sky-100 text-blue" },
   contacted: { label: "Contact gelegd", pill: "bg-amber-100 text-amber-700" },
@@ -241,7 +248,7 @@ function RequestCard({ booking: b }: { booking: Booking }) {
           {[b.street, b.postcode, b.city].filter(Boolean).join(" · ") || "—"}
         </Field>
         <Field icon={<Calendar size={14} />} label="Gewenste datum">
-          {formatDateLong(b.date)} · {b.timeSlot}
+          {formatDateLong(b.date)} · {SLOT_LABELS[b.timeSlot] ?? b.timeSlot}
         </Field>
         <Field icon={<ArrowUp size={14} />} label="Verdieping">
           {b.floor}e verdieping

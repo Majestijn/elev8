@@ -35,4 +35,17 @@ return [
         ],
     ],
 
+    /*
+    | Google Calendar — read-only beschikbaarheid via een service-account.
+    | 'calendar_id'  : de agenda die met het service-account is gedeeld
+    |                  (bv. chris@urbanlift.nl of een agenda-ID).
+    | 'credentials'  : de service-account-JSON. Mag de ruwe JSON-string zijn
+    |                  (handig op Railway als env-var) of een pad naar het
+    |                  JSON-bestand. Leeg = check uit → alle slots boekbaar.
+    */
+    'google' => [
+        'calendar_id' => env('GOOGLE_CALENDAR_ID'),
+        'credentials' => env('GOOGLE_SERVICE_ACCOUNT_JSON'),
+    ],
+
 ];

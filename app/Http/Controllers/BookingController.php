@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Booking;
+use App\Services\Calendar\SlotAvailability;
 use App\Services\WhatsAppNotifier;
+use App\Support\BookingSlots;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -43,13 +46,16 @@ class BookingController extends Controller
      */
     public function create(): Response
     {
-        return Inertia::render('BookingFlow');
+        return Inertia::render('BookingFlow', [
+            'slots' => BookingSlots::all(),
+            'calendarEnabled' => BookingSlots::calendarEnabled(),
+        ]);
     }
 
     /**
      * Sla een binnengekomen aanvraag op en toon het bedankt-scherm.
      */
-    public function store(Request $request, WhatsAppNotifier $whatsapp): RedirectResponse
+    public function store(Request $request, WhatsAppNotifier $whatsapp, SlotAvailability $slots): RedirectResponse
     {
         $validated = $request->validate([
             'customerName' => ['required', 'string', 'min:2', 'max:120'],
@@ -59,7 +65,7 @@ class BookingController extends Controller
             'street' => ['required', 'string', 'min:2', 'max:160'],
             'city' => ['nullable', 'string', 'max:120'],
             'date' => ['required', 'date', 'after_or_equal:today'],
-            'timeSlot' => ['required', 'string', 'max:20'],
+            'timeSlot' => ['required', 'string', Rule::in(BookingSlots::keys())],
             'items' => ['required', 'array', 'min:1', 'max:20'],
             'items.*.type' => ['required', 'string', Rule::in(self::JOB_TYPES)],
             'items.*.length' => ['nullable', 'integer', 'min:1', 'max:2000'],
@@ -94,6 +100,17 @@ class BookingController extends Controller
             'photos.*.mimes' => 'Alleen foto’s (JPG, PNG, WEBP of HEIC).',
             'photos.*.max' => 'Elke foto mag maximaal 8 MB zijn.',
         ]);
+
+        // Defense-in-depth tegen het omzeilen van de uitgegrijsde knop: alleen
+        // relevant als de agenda-flow aan staat. Blokkeer enkel als het dagdeel
+        // aantoonbaar bezet is (faalveilig — bij geen/onbereikbare agenda staat
+        // alles op vrij, dus geen valse afwijzingen).
+        if (BookingSlots::calendarEnabled()
+            && ($slots->forDate($validated['date'])[$validated['timeSlot']] ?? true) === false) {
+            throw ValidationException::withMessages([
+                'timeSlot' => 'Dit tijdvak is net bezet geraakt. Kies een ander tijdvak.',
+            ]);
+        }
 
         // Bewaar de foto's op de geconfigureerde disk (lokaal 'public', later bucket).
         $photoPaths = [];
