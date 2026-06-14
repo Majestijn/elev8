@@ -472,7 +472,7 @@ function StepJob({
           </div>
         </div>
         <p className="mt-3 text-[12px] text-slate-500">
-          Een schatting is prima — hiermee kiest elev8 de juiste lift.
+          Een schatting is prima — hiermee kiest UrbanLift de juiste lift.
         </p>
       </div>
 
@@ -688,7 +688,7 @@ function Sidebar({ data }: { data: FormData }) {
         <div className="mt-8 flex items-start gap-3 rounded-xl bg-white/60 px-4 py-3 text-[12px] text-ink-2">
           <Shield size={14} className="mt-0.5 shrink-0 text-green" />
           <span>
-            Na het versturen neemt elev8 persoonlijk contact met je op om de
+            Na het versturen neemt UrbanLift persoonlijk contact met je op om de
             details en prijs af te stemmen. Je zit nog nergens aan vast.
           </span>
         </div>
@@ -744,8 +744,8 @@ function DoneScreen({ code }: { code: string }) {
             Bedankt, je aanvraag is binnen!
           </h1>
           <p className="mx-auto mt-3 max-w-[440px] text-[15px] leading-relaxed text-ink-2">
-            elev8 neemt zo snel mogelijk telefonisch of per e-mail contact met je
-            op om de details door te nemen, de juiste lift te kiezen en een
+            UrbanLift neemt zo snel mogelijk telefonisch of per e-mail contact met
+            je op om de details door te nemen, de juiste lift te kiezen en een
             afspraak in te plannen.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">

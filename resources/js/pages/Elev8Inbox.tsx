@@ -14,6 +14,7 @@ import {
   RotateCcw,
   Weight,
 } from "lucide-react";
+import { LogoMark } from "@/components/Brand";
 import type { Booking, BookingItem } from "@/lib/types";
 import { cn, formatDateLong, relativeTime } from "@/lib/utils";
 
@@ -36,12 +37,10 @@ export default function Elev8Inbox({ bookings }: { bookings: Booking[] }) {
       <Head title="Aanvragen" />
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
         <div className="mx-auto flex h-16 max-w-[900px] items-center justify-between px-6">
-          <div className="flex items-center gap-2">
-            <span className="text-[18px] font-extrabold tracking-tight text-navy">
-              elev8
-            </span>
-            <span className="rounded-md bg-navy px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
-              lift
+          <div className="flex items-center gap-2.5">
+            <LogoMark className="h-8 w-8" />
+            <span className="text-[17px] font-extrabold tracking-tight text-navy">
+              Urban<span className="text-blue">Lift</span>
             </span>
             <span className="ml-1 text-[13px] font-semibold text-slate-400">
               Aanvragen

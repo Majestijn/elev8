@@ -2,7 +2,7 @@ import { createInertiaApp } from "@inertiajs/react";
 import { createRoot } from "react-dom/client";
 
 createInertiaApp({
-  title: (title) => (title ? `${title} · elev8 lift` : "elev8 lift"),
+  title: (title) => (title ? `${title} · UrbanLift` : "UrbanLift"),
   resolve: (name) => {
     const pages = import.meta.glob("./pages/**/*.tsx", { eager: true });
     const page = pages[`./pages/${name}.tsx`];

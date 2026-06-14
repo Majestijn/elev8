@@ -1,4 +1,5 @@
 import { Head, useForm } from "@inertiajs/react";
+import { LogoMark } from "@/components/Brand";
 import { cn } from "@/lib/utils";
 
 export default function Elev8Login() {
@@ -18,12 +19,10 @@ export default function Elev8Login() {
         onSubmit={submit}
         className="w-full max-w-[380px] rounded-2xl border border-slate-200 bg-white p-8 shadow-sm"
       >
-        <div className="flex items-center gap-2">
-          <span className="text-[22px] font-extrabold tracking-tight text-navy">
-            elev8
-          </span>
-          <span className="rounded-md bg-navy px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
-            lift
+        <div className="flex items-center gap-2.5">
+          <LogoMark />
+          <span className="text-[20px] font-extrabold tracking-tight text-navy">
+            Urban<span className="text-blue">Lift</span>
           </span>
         </div>
         <h1 className="mt-5 text-[22px] font-bold tracking-tight text-navy">
