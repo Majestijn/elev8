@@ -3,17 +3,22 @@ import { Head, Link, router, useForm, usePage } from "@inertiajs/react";
 import {
   ArrowRight,
   Calendar as CalendarIcon,
+  Check,
   CheckCircle2,
   ChevronLeft,
+  Hammer,
   MapPin,
+  Music,
   Package,
   PackageOpen,
   Phone,
-  Plus,
+  Refrigerator,
   Shield,
+  Sofa,
   Sparkles,
-  Trash2,
+  Truck,
   User,
+  WashingMachine,
   Weight,
 } from "lucide-react";
 import {
@@ -30,30 +35,29 @@ type Step = 0 | 1 | 2;
 
 const STEP_LABELS = ["Jouw gegevens", "Datum & tijd", "Wat moet er omhoog?"];
 
-const JOB_TYPES: { value: JobType; label: string }[] = [
-  { value: "Bank", label: "Bank of meubel" },
-  { value: "Koelkast", label: "Koelkast" },
-  { value: "Wasmachine", label: "Wasmachine of droger" },
-  { value: "Volledige verhuizing", label: "Volledige verhuizing" },
-  { value: "Piano", label: "Piano of vleugel" },
-  { value: "Bouwmaterialen", label: "Bouwmaterialen" },
-  { value: "Anders", label: "Iets anders" },
+const JOB_OPTIONS: Array<{
+  value: JobType;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+}> = [
+  { value: "Bank", title: "Bank of meubel", description: "Eén of twee zware meubels", icon: <Sofa size={28} /> },
+  { value: "Koelkast", title: "Koelkast", description: "Ook Amerikaanse maten", icon: <Refrigerator size={28} /> },
+  { value: "Wasmachine", title: "Wasmachine of droger", description: "Standaard witgoed", icon: <WashingMachine size={28} /> },
+  { value: "Volledige verhuizing", title: "Volledige verhuizing", description: "Studio tot 3-kamer appartement", icon: <Truck size={28} /> },
+  { value: "Piano", title: "Piano of vleugel", description: "Zware, kwetsbare last", icon: <Music size={28} /> },
+  { value: "Bouwmaterialen", title: "Bouwmaterialen", description: "Gips, cement, isolatie, paletten", icon: <Hammer size={28} /> },
+  { value: "Anders", title: "Iets anders", description: "Vertel het ons hieronder", icon: <Package size={28} /> },
 ];
 
 const WEIGHT_PRESETS = [25, 50, 100, 150, 250];
 
-/** Eén object-rij in het formulier; lege string = nog niet ingevuld. */
+/** Eén geselecteerd object; afmetingen in cm zijn optioneel (lege string = leeg). */
 interface ItemDraft {
-  id: number;
-  type: JobType | "";
+  type: JobType;
   length: number | "";
   width: number | "";
   height: number | "";
-}
-
-let itemSeq = 0;
-function emptyItem(): ItemDraft {
-  return { id: ++itemSeq, type: "", length: "", width: "", height: "" };
 }
 
 function tomorrowISO() {
@@ -97,7 +101,7 @@ export default function BookingFlow() {
       city: "",
       date: tomorrowISO(),
       timeSlot: "10:00",
-      items: [emptyItem()],
+      items: [],
       description: "",
       heaviestObjectKg: "",
     });
@@ -114,35 +118,35 @@ export default function BookingFlow() {
     setStep((s) => Math.max(0, s - 1) as Step);
   }
 
-  /* ── object-lijst helpers ── */
-  function addItem() {
-    setData("items", [...data.items, emptyItem()]);
+  /* ── object-selectie (multi-select) ── */
+  function isSelected(type: JobType) {
+    return data.items.some((it) => it.type === type);
   }
-  function removeItem(index: number) {
+  function toggleType(type: JobType) {
     setData(
       "items",
-      data.items.filter((_, i) => i !== index)
+      isSelected(type)
+        ? data.items.filter((it) => it.type !== type)
+        : [...data.items, { type, length: "", width: "", height: "" }]
     );
   }
-  function updateItem(index: number, patch: Partial<ItemDraft>) {
+  function updateDims(type: JobType, patch: Partial<ItemDraft>) {
     setData(
       "items",
-      data.items.map((it, i) => (i === index ? { ...it, ...patch } : it))
+      data.items.map((it) => (it.type === type ? { ...it, ...patch } : it))
     );
   }
 
   function submit() {
-    // Strip lege objecten + zet lege afmetingen om naar null vóór verzenden.
+    // Zet lege afmetingen om naar null vóór verzenden.
     transform((d) => ({
       ...d,
-      items: d.items
-        .filter((it) => it.type !== "")
-        .map((it) => ({
-          type: it.type,
-          length: it.length === "" ? null : it.length,
-          width: it.width === "" ? null : it.width,
-          height: it.height === "" ? null : it.height,
-        })),
+      items: d.items.map((it) => ({
+        type: it.type,
+        length: it.length === "" ? null : it.length,
+        width: it.width === "" ? null : it.width,
+        height: it.height === "" ? null : it.height,
+      })),
     }));
     post("/", {
       preserveScroll: true,
@@ -159,8 +163,7 @@ export default function BookingFlow() {
         data.street.trim().length > 1
       );
     if (step === 1) return !!data.date && !!data.timeSlot;
-    if (step === 2)
-      return data.items.some((it) => it.type !== "") && !!data.heaviestObjectKg;
+    if (step === 2) return data.items.length > 0 && !!data.heaviestObjectKg;
     return false;
   })();
 
@@ -185,9 +188,9 @@ export default function BookingFlow() {
                 <StepJob
                   data={data}
                   setData={setData}
-                  addItem={addItem}
-                  removeItem={removeItem}
-                  updateItem={updateItem}
+                  isSelected={isSelected}
+                  onToggle={toggleType}
+                  onDims={updateDims}
                 />
               )}
             </div>
@@ -394,15 +397,15 @@ function StepWhen({ data, setData }: { data: FormData; setData: SetData }) {
 function StepJob({
   data,
   setData,
-  addItem,
-  removeItem,
-  updateItem,
+  isSelected,
+  onToggle,
+  onDims,
 }: {
   data: FormData;
   setData: SetData;
-  addItem: () => void;
-  removeItem: (index: number) => void;
-  updateItem: (index: number, patch: Partial<ItemDraft>) => void;
+  isSelected: (type: JobType) => boolean;
+  onToggle: (type: JobType) => void;
+  onDims: (type: JobType, patch: Partial<ItemDraft>) => void;
 }) {
   const isCustomWeight =
     data.heaviestObjectKg !== "" &&
@@ -412,41 +415,38 @@ function StepJob({
     <div>
       <CustomerLabel>Welke objecten moeten omhoog?</CustomerLabel>
       <p className="mt-1 text-[12px] text-slate-500">
-        Voeg alles toe wat de lift in moet. Afmetingen invullen mag, maar hoeft
-        niet.
+        Kies alles wat de lift in moet. Bij elk gekozen object kun je optioneel
+        de afmetingen invullen.
       </p>
 
-      <div className="mt-3 space-y-3">
-        {data.items.map((item, i) => (
-          <ObjectRow
-            key={item.id}
-            item={item}
-            canRemove={data.items.length > 1}
-            onChange={(patch) => updateItem(i, patch)}
-            onRemove={() => removeItem(i)}
-          />
-        ))}
+      <div className="mt-3 flex flex-col gap-3">
+        {JOB_OPTIONS.map((option) => {
+          const selected = isSelected(option.value);
+          const item = data.items.find((it) => it.type === option.value);
+          return (
+            <ObjectCard
+              key={option.value}
+              option={option}
+              selected={selected}
+              item={item}
+              onToggle={() => onToggle(option.value)}
+              onDims={(patch) => onDims(option.value, patch)}
+            />
+          );
+        })}
       </div>
-
-      <button
-        type="button"
-        onClick={addItem}
-        className="mt-3 inline-flex items-center gap-2 rounded-xl border-2 border-dashed border-slate-300 px-4 py-2.5 text-[14px] font-semibold text-blue transition-colors hover:border-blue/50 hover:bg-sky-50"
-      >
-        <Plus size={16} />
-        Object toevoegen
-      </button>
 
       {/* Gewicht zwaarste object */}
       <div className="mt-9">
         <CustomerLabel>Hoe zwaar is het zwaarste object? (kg)</CustomerLabel>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2.5">
           {WEIGHT_PRESETS.map((w) => (
             <SelectButton
               key={w}
               active={data.heaviestObjectKg === w}
               onClick={() => setData("heaviestObjectKg", w)}
               size="lg"
+              className="min-w-[84px] px-5"
             >
               {w} kg
             </SelectButton>
@@ -464,7 +464,7 @@ function StepJob({
                 )
               }
               placeholder="Anders"
-              className="h-12 w-[132px] rounded-xl border-2 border-slate-200 bg-paper pl-4 pr-9 text-[15px] font-semibold text-navy placeholder:font-normal placeholder:text-slate-400 transition-colors hover:border-slate-300 focus:border-blue focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              className="h-12 w-[140px] rounded-xl border-2 border-slate-200 bg-paper pl-4 pr-9 text-[15px] font-semibold text-navy placeholder:font-normal placeholder:text-slate-400 transition-colors hover:border-slate-300 focus:border-blue focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-slate-400">
               kg
@@ -491,74 +491,68 @@ function StepJob({
   );
 }
 
-function ObjectRow({
+function ObjectCard({
+  option,
+  selected,
   item,
-  canRemove,
-  onChange,
-  onRemove,
+  onToggle,
+  onDims,
 }: {
-  item: ItemDraft;
-  canRemove: boolean;
-  onChange: (patch: Partial<ItemDraft>) => void;
-  onRemove: () => void;
+  option: { value: JobType; title: string; description: string; icon: React.ReactNode };
+  selected: boolean;
+  item?: ItemDraft;
+  onToggle: () => void;
+  onDims: (patch: Partial<ItemDraft>) => void;
 }) {
   return (
-    <div className="rounded-2xl border-2 border-slate-200 bg-paper p-4">
-      <div className="flex items-center gap-3">
-        <select
-          value={item.type}
-          onChange={(e) => onChange({ type: e.target.value as JobType })}
+    <div
+      className={cn(
+        "overflow-hidden rounded-2xl border-2 transition-all",
+        selected ? "border-blue bg-sky-50" : "border-slate-200 bg-paper hover:border-blue/40"
+      )}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-pressed={selected}
+        className="flex w-full items-center gap-5 px-5 py-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue/30"
+      >
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-blue">
+          {option.icon}
+        </div>
+        <div className="flex-1">
+          <div className="text-[16px] font-bold leading-tight text-navy">
+            {option.title}
+          </div>
+          <div className="mt-1 text-[13px] leading-snug text-ink-3">
+            {option.description}
+          </div>
+        </div>
+        <span
           className={cn(
-            "h-11 flex-1 rounded-xl border-2 border-slate-200 bg-paper px-3 text-[15px] font-semibold text-navy transition-colors hover:border-slate-300 focus:border-blue focus:outline-none",
-            item.type === "" && "text-slate-400"
+            "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
+            selected ? "border-blue bg-blue text-white" : "border-slate-300"
           )}
         >
-          <option value="" disabled>
-            Kies een object…
-          </option>
-          {JOB_TYPES.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
-            </option>
-          ))}
-        </select>
-        {canRemove && (
-          <button
-            type="button"
-            onClick={onRemove}
-            aria-label="Object verwijderen"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-slate-200 text-slate-400 transition-colors hover:border-red-300 hover:text-red-500"
-          >
-            <Trash2 size={18} />
-          </button>
-        )}
-      </div>
+          {selected && <Check size={14} strokeWidth={3} />}
+        </span>
+      </button>
 
-      <div className="mt-3">
-        <div className="text-[12px] font-medium text-slate-500">
-          Afmetingen (optioneel)
+      {selected && item && (
+        <div className="border-t-2 border-sky-200 px-5 py-4">
+          <div className="text-[12px] font-medium text-ink-2">
+            Afmetingen (optioneel)
+          </div>
+          <div className="mt-1.5 flex items-center gap-2">
+            <DimInput value={item.length} placeholder="L" onChange={(v) => onDims({ length: v })} />
+            <span className="text-slate-400">×</span>
+            <DimInput value={item.width} placeholder="B" onChange={(v) => onDims({ width: v })} />
+            <span className="text-slate-400">×</span>
+            <DimInput value={item.height} placeholder="H" onChange={(v) => onDims({ height: v })} />
+            <span className="ml-1 text-[13px] text-slate-400">cm</span>
+          </div>
         </div>
-        <div className="mt-1.5 flex items-center gap-2">
-          <DimInput
-            value={item.length}
-            placeholder="L"
-            onChange={(v) => onChange({ length: v })}
-          />
-          <span className="text-slate-400">×</span>
-          <DimInput
-            value={item.width}
-            placeholder="B"
-            onChange={(v) => onChange({ width: v })}
-          />
-          <span className="text-slate-400">×</span>
-          <DimInput
-            value={item.height}
-            placeholder="H"
-            onChange={(v) => onChange({ height: v })}
-          />
-          <span className="ml-1 text-[13px] text-slate-400">cm</span>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -631,7 +625,7 @@ function formatDims(it: ItemDraft): string | null {
 }
 
 function Sidebar({ data }: { data: FormData }) {
-  const filledItems = data.items.filter((it) => it.type !== "");
+  const items = data.items;
   return (
     <aside className="hidden w-[380px] shrink-0 border-l border-sky-200 bg-sky-100 md:block">
       <div className="sticky top-14 px-7 py-10">
@@ -639,8 +633,8 @@ function Sidebar({ data }: { data: FormData }) {
           Jouw aanvraag
         </div>
         <h3 className="mt-2 text-[26px] font-bold leading-tight tracking-tight text-navy">
-          {filledItems.length > 0
-            ? `${filledItems.length} ${filledItems.length === 1 ? "object" : "objecten"}`
+          {items.length > 0
+            ? `${items.length} ${items.length === 1 ? "object" : "objecten"}`
             : "Lift huren"}
         </h3>
         {data.description && (
@@ -669,13 +663,13 @@ function Sidebar({ data }: { data: FormData }) {
             {data.date ? `${formatDateLong(data.date)}` : <span className="text-slate-500">—</span>}
             {data.timeSlot && <span className="ml-1 text-ink-2">· {data.timeSlot}</span>}
           </Row>
-          {filledItems.length > 0 && (
+          {items.length > 0 && (
             <Row icon={<Package size={14} />} label="Objecten">
               <ul className="space-y-0.5">
-                {filledItems.map((it) => {
+                {items.map((it) => {
                   const dims = formatDims(it);
                   return (
-                    <li key={it.id}>
+                    <li key={it.type}>
                       {it.type}
                       {dims && <span className="text-ink-3"> · {dims}</span>}
                     </li>
