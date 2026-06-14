@@ -26,6 +26,7 @@ class BookingFlowTest extends TestCase
                 ['type' => 'Piano', 'length' => 180, 'width' => 60, 'height' => 120],
                 ['type' => 'Bank'],
             ],
+            'siteConditions' => ['trees', 'narrow_street'],
             'description' => '3e verdieping, grachtenpand',
             'heaviestObjectKg' => 250,
         ], $overrides);
@@ -54,6 +55,7 @@ class BookingFlowTest extends TestCase
         $this->assertSame(180, $booking->items[0]['length']);
         $this->assertSame('Bank', $booking->items[1]['type']);
         $this->assertNull($booking->items[1]['length']);
+        $this->assertSame(['trees', 'narrow_street'], $booking->site_conditions);
         $this->assertSame(250, $booking->heaviest_object_kg);
         $this->assertSame('requested', $booking->status);
         $this->assertNull($booking->handled_at);
@@ -126,6 +128,24 @@ class BookingFlowTest extends TestCase
             ]))
             ->assertRedirect('/')
             ->assertSessionHasErrors('items.0.type');
+
+        $this->assertDatabaseCount('bookings', 0);
+    }
+
+    public function test_site_conditions_are_optional(): void
+    {
+        $this->post('/', $this->validPayload(['siteConditions' => []]))
+            ->assertRedirect('/');
+
+        $this->assertSame([], Booking::first()->site_conditions);
+    }
+
+    public function test_invalid_site_condition_is_rejected(): void
+    {
+        $this->from('/')
+            ->post('/', $this->validPayload(['siteConditions' => ['lava']]))
+            ->assertRedirect('/')
+            ->assertSessionHasErrors('siteConditions.0');
 
         $this->assertDatabaseCount('bookings', 0);
     }

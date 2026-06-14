@@ -12,6 +12,7 @@ class Booking extends Model
         'customer_email',
         'customer_phone',
         'items',
+        'site_conditions',
         'description',
         'heaviest_object_kg',
         'postcode',
@@ -25,6 +26,7 @@ class Booking extends Model
 
     protected $casts = [
         'items' => 'array',
+        'site_conditions' => 'array',
         'preferred_date' => 'date',
         'handled_at' => 'datetime',
         'heaviest_object_kg' => 'integer',
@@ -44,6 +46,7 @@ class Booking extends Model
             'customerEmail' => $this->customer_email,
             'customerPhone' => $this->customer_phone,
             'items' => $this->items ?? [],
+            'siteConditions' => $this->site_conditions ?? [],
             'description' => $this->description,
             'heaviestObjectKg' => $this->heaviest_object_kg,
             'postcode' => $this->postcode,

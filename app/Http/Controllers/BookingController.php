@@ -21,6 +21,14 @@ class BookingController extends Controller
         'Anders',
     ];
 
+    /** Toegestane locatie-bijzonderheden (keys; labels staan in de frontend). */
+    private const SITE_CONDITIONS = [
+        'trees',
+        'balconies',
+        'cables',
+        'narrow_street',
+    ];
+
     /**
      * Publieke aanvraag-flow — de link die Chris naar zijn klanten stuurt.
      */
@@ -50,6 +58,8 @@ class BookingController extends Controller
             'items.*.height' => ['nullable', 'integer', 'min:1', 'max:2000'],
             'description' => ['nullable', 'string', 'max:2000'],
             'heaviestObjectKg' => ['required', 'integer', 'min:1', 'max:100000'],
+            'siteConditions' => ['nullable', 'array'],
+            'siteConditions.*' => ['string', Rule::in(self::SITE_CONDITIONS)],
         ], [
             'customerName.required' => 'Vul je naam in.',
             'customerName.min' => 'Vul je volledige naam in.',
@@ -73,6 +83,7 @@ class BookingController extends Controller
             'customer_email' => isset($validated['customerEmail']) ? trim($validated['customerEmail']) : null,
             'customer_phone' => trim($validated['customerPhone']),
             'items' => $this->normalizeItems($validated['items']),
+            'site_conditions' => array_values($validated['siteConditions'] ?? []),
             'description' => isset($validated['description']) ? trim($validated['description']) : null,
             'heaviest_object_kg' => $validated['heaviestObjectKg'],
             'postcode' => strtoupper(trim($validated['postcode'])),

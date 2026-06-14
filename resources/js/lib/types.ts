@@ -23,6 +23,7 @@ export interface Booking {
   customerEmail: string | null;
   customerPhone: string;
   items: BookingItem[];
+  siteConditions: string[];
   description: string | null;
   heaviestObjectKg: number | null;
   postcode: string;

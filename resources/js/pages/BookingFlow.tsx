@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   Hammer,
+  Info,
   MapPin,
   Music,
   Package,
@@ -29,11 +30,17 @@ import {
 import { SelectButton } from "@/components/SelectButton";
 import { Brand } from "@/components/Brand";
 import type { JobType } from "@/lib/types";
+import { SITE_CONDITIONS, siteConditionTitle } from "@/lib/site-conditions";
 import { cn, formatDateLong } from "@/lib/utils";
 
-type Step = 0 | 1 | 2;
+type Step = 0 | 1 | 2 | 3;
 
-const STEP_LABELS = ["Jouw gegevens", "Datum & tijd", "Wat moet er omhoog?"];
+const STEP_LABELS = [
+  "Jouw gegevens",
+  "Datum & tijd",
+  "Wat moet er omhoog?",
+  "Locatie & toegang",
+];
 
 const JOB_OPTIONS: Array<{
   value: JobType;
@@ -83,6 +90,7 @@ interface FormData {
   date: string;
   timeSlot: string;
   items: ItemDraft[];
+  siteConditions: string[];
   description: string;
   heaviestObjectKg: number | "";
 }
@@ -104,6 +112,7 @@ export default function BookingFlow() {
       date: tomorrowISO(),
       timeSlot: "10:00",
       items: [],
+      siteConditions: [],
       description: "",
       heaviestObjectKg: "",
     });
@@ -114,7 +123,7 @@ export default function BookingFlow() {
   }
 
   function next() {
-    setStep((s) => Math.min(2, s + 1) as Step);
+    setStep((s) => Math.min(3, s + 1) as Step);
   }
   function back() {
     setStep((s) => Math.max(0, s - 1) as Step);
@@ -152,6 +161,16 @@ export default function BookingFlow() {
     );
   }
 
+  /* ── locatie-bijzonderheden (multi-select, optioneel) ── */
+  function toggleCondition(key: string) {
+    setData(
+      "siteConditions",
+      data.siteConditions.includes(key)
+        ? data.siteConditions.filter((k) => k !== key)
+        : [...data.siteConditions, key]
+    );
+  }
+
   function submit() {
     // Zet lege afmetingen om naar null vóór verzenden.
     transform((d) => ({
@@ -179,11 +198,12 @@ export default function BookingFlow() {
       );
     if (step === 1) return !!data.date && !!data.timeSlot;
     if (step === 2) return data.items.length > 0 && !!data.heaviestObjectKg;
+    if (step === 3) return true; // bijzonderheden zijn optioneel
     return false;
   })();
 
   function onPrimary() {
-    if (step === 2) submit();
+    if (step === 3) submit();
     else next();
   }
 
@@ -220,6 +240,9 @@ export default function BookingFlow() {
                   onToggle={toggleType}
                   onDims={updateDims}
                 />
+              )}
+              {step === 3 && (
+                <StepLocation data={data} onToggle={toggleCondition} />
               )}
             </div>
           </div>
@@ -278,6 +301,7 @@ function StepHeading({ step }: { step: Step }) {
     "Voor wie en waar moet de lift komen?",
     "Wanneer wil je de lift?",
     "Wat moet er omhoog?",
+    "Zijn er bijzonderheden op locatie?",
   ];
   return (
     <div>
@@ -609,6 +633,92 @@ function DimInput({
   );
 }
 
+/* ───────────────────────── STEP 4 — LOCATIE ──────────────────── */
+
+function StepLocation({
+  data,
+  onToggle,
+}: {
+  data: FormData;
+  onToggle: (key: string) => void;
+}) {
+  return (
+    <div>
+      <CustomerLabel>Zijn er obstakels rond de plek waar de lift komt?</CustomerLabel>
+      <p className="mt-1 text-[12px] text-slate-500">
+        Selecteer wat van toepassing is. Niets aanvinken mag ook.
+      </p>
+
+      <div className="mt-3 flex flex-col gap-3">
+        {SITE_CONDITIONS.map((c) => (
+          <ConditionCard
+            key={c.key}
+            condition={c}
+            selected={data.siteConditions.includes(c.key)}
+            onToggle={() => onToggle(c.key)}
+          />
+        ))}
+      </div>
+
+      <div className="mt-6 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] text-ink-2">
+        <Info size={16} className="mt-0.5 shrink-0 text-blue" />
+        <span>
+          Geen bijzonderheden? Ga gewoon verder — UrbanLift neemt voor de
+          zekerheid altijd nog contact met je op.
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ConditionCard({
+  condition,
+  selected,
+  onToggle,
+}: {
+  condition: {
+    key: string;
+    title: string;
+    description: string;
+    icon: React.ComponentType<{ size?: number }>;
+  };
+  selected: boolean;
+  onToggle: () => void;
+}) {
+  const Icon = condition.icon;
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={selected}
+      className={cn(
+        "flex w-full items-center gap-5 rounded-2xl border-2 px-5 py-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue/30",
+        selected ? "border-blue bg-sky-50" : "border-slate-200 bg-paper hover:border-blue/40"
+      )}
+    >
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-blue">
+        <Icon size={28} />
+      </div>
+      <div className="flex-1">
+        <div className="text-[16px] font-bold leading-tight text-navy">
+          {condition.title}
+        </div>
+        <div className="mt-1 text-[13px] leading-snug text-ink-3">
+          {condition.description}
+        </div>
+      </div>
+      <span
+        className={cn(
+          "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
+          selected ? "border-blue bg-blue text-white" : "border-slate-300"
+        )}
+      >
+        {selected && <Check size={14} strokeWidth={3} />}
+      </span>
+    </button>
+  );
+}
+
 /* ─────────────────────────── BOTTOM BAR ──────────────────────── */
 
 function BottomBar({
@@ -622,7 +732,7 @@ function BottomBar({
   onPrimary: () => void;
   processing: boolean;
 }) {
-  const label = step === 2 ? (processing ? "Versturen…" : "Aanvraag versturen") : "Verder";
+  const label = step === 3 ? (processing ? "Versturen…" : "Aanvraag versturen") : "Verder";
   return (
     <div className="sticky bottom-0 z-20 border-t border-slate-200 bg-paper">
       <div className="mx-auto flex w-full max-w-[720px] items-center justify-end px-6 py-4">
@@ -709,6 +819,15 @@ function Sidebar({ data }: { data: FormData }) {
           {data.heaviestObjectKg !== "" && (
             <Row icon={<Weight size={14} />} label="Zwaarste object">
               {data.heaviestObjectKg} kg
+            </Row>
+          )}
+          {data.siteConditions.length > 0 && (
+            <Row icon={<Info size={14} />} label="Bijzonderheden">
+              <ul className="space-y-0.5">
+                {data.siteConditions.map((k) => (
+                  <li key={k}>{siteConditionTitle(k)}</li>
+                ))}
+              </ul>
             </Row>
           )}
         </div>

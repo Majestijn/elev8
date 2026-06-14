@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Inbox,
+  Info,
   LogOut,
   Mail,
   MapPin,
@@ -15,6 +16,7 @@ import {
   Weight,
 } from "lucide-react";
 import { LogoMark } from "@/components/Brand";
+import { siteConditionTitle } from "@/lib/site-conditions";
 import type { Booking, BookingItem } from "@/lib/types";
 import { cn, formatDateLong, relativeTime } from "@/lib/utils";
 
@@ -230,6 +232,11 @@ function RequestCard({ booking: b }: { booking: Booking }) {
         </Field>
         <Field icon={<Weight size={14} />} label="Zwaarste object">
           {b.heaviestObjectKg ? `${b.heaviestObjectKg} kg` : "—"}
+        </Field>
+        <Field icon={<Info size={14} />} label="Bijzonderheden">
+          {b.siteConditions.length > 0
+            ? b.siteConditions.map((k) => siteConditionTitle(k)).join(" · ")
+            : "Geen opgegeven"}
         </Field>
         {b.description && (
           <Field icon={<Package size={14} />} label="Toelichting">
