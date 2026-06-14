@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   Hammer,
   Info,
+  Mail,
   MapPin,
   Music,
   Package,
@@ -33,13 +34,14 @@ import type { JobType } from "@/lib/types";
 import { SITE_CONDITIONS, siteConditionTitle } from "@/lib/site-conditions";
 import { cn, formatDateLong } from "@/lib/utils";
 
-type Step = 0 | 1 | 2 | 3;
+type Step = 0 | 1 | 2 | 3 | 4;
 
 const STEP_LABELS = [
   "Jouw gegevens",
   "Datum & tijd",
   "Wat moet er omhoog?",
   "Locatie & toegang",
+  "Controleren",
 ];
 
 const JOB_OPTIONS: Array<{
@@ -123,7 +125,7 @@ export default function BookingFlow() {
   }
 
   function next() {
-    setStep((s) => Math.min(3, s + 1) as Step);
+    setStep((s) => Math.min(4, s + 1) as Step);
   }
   function back() {
     setStep((s) => Math.max(0, s - 1) as Step);
@@ -199,11 +201,12 @@ export default function BookingFlow() {
     if (step === 1) return !!data.date && !!data.timeSlot;
     if (step === 2) return data.items.length > 0 && !!data.heaviestObjectKg;
     if (step === 3) return true; // bijzonderheden zijn optioneel
+    if (step === 4) return true; // controlepagina
     return false;
   })();
 
   function onPrimary() {
-    if (step === 3) submit();
+    if (step === 4) submit();
     else next();
   }
 
@@ -244,12 +247,13 @@ export default function BookingFlow() {
               {step === 3 && (
                 <StepLocation data={data} onToggle={toggleCondition} />
               )}
+              {step === 4 && <StepReview data={data} onEdit={setStep} />}
             </div>
           </div>
           <BottomBar step={step} canContinue={canContinue && !processing} onPrimary={onPrimary} processing={processing} />
         </div>
 
-        <Sidebar data={data} />
+        {step < 4 && <Sidebar data={data} />}
       </div>
     </div>
   );
@@ -302,6 +306,7 @@ function StepHeading({ step }: { step: Step }) {
     "Wanneer wil je de lift?",
     "Wat moet er omhoog?",
     "Zijn er bijzonderheden op locatie?",
+    "Klopt alles?",
   ];
   return (
     <div>
@@ -732,7 +737,7 @@ function BottomBar({
   onPrimary: () => void;
   processing: boolean;
 }) {
-  const label = step === 3 ? (processing ? "Versturen…" : "Aanvraag versturen") : "Verder";
+  const label = step === 4 ? (processing ? "Bezig…" : "Bevestig boeking") : "Verder";
   return (
     <div className="sticky bottom-0 z-20 border-t border-slate-200 bg-paper">
       <div className="mx-auto flex w-full max-w-[720px] items-center justify-end px-6 py-4">
@@ -779,56 +784,74 @@ function Sidebar({ data }: { data: FormData }) {
           <p className="mt-2 text-[13px] text-ink-2">{data.description}</p>
         )}
 
-        <div className="mt-7 space-y-5 text-[13px]">
-          <Row icon={<User size={14} />} label="Naam">
-            {data.customerName || <span className="text-slate-500">—</span>}
-          </Row>
-          <Row icon={<Phone size={14} />} label="Telefoon">
-            {data.customerPhone || <span className="text-slate-500">—</span>}
-          </Row>
-          <Row icon={<MapPin size={14} />} label="Locatie">
-            {data.postcode ? (
-              <>
-                {data.postcode}
-                {data.street ? ` · ${data.street}` : ""}
-                {data.city ? ` · ${data.city}` : ""}
-              </>
-            ) : (
-              <span className="text-slate-500">—</span>
+        <div className="mt-7 space-y-6">
+          <SidebarSection title="Jouw gegevens">
+            <Row icon={<User size={14} />} label="Naam">
+              {data.customerName || <span className="text-slate-500">—</span>}
+            </Row>
+            <Row icon={<Phone size={14} />} label="Telefoon">
+              {data.customerPhone || <span className="text-slate-500">—</span>}
+            </Row>
+            {data.customerEmail && (
+              <Row icon={<Mail size={14} />} label="E-mail">
+                {data.customerEmail}
+              </Row>
             )}
-          </Row>
-          <Row icon={<CalendarIcon size={14} />} label="Wanneer">
-            {data.date ? `${formatDateLong(data.date)}` : <span className="text-slate-500">—</span>}
-            {data.timeSlot && <span className="ml-1 text-ink-2">· {data.timeSlot}</span>}
-          </Row>
-          {items.length > 0 && (
-            <Row icon={<Package size={14} />} label="Objecten">
-              <ul className="space-y-0.5">
-                {items.map((it) => {
-                  const dims = formatDims(it);
-                  return (
-                    <li key={it.type}>
-                      {it.type}
-                      {dims && <span className="text-ink-3"> · {dims}</span>}
-                    </li>
-                  );
-                })}
-              </ul>
+            <Row icon={<MapPin size={14} />} label="Adres">
+              {data.postcode ? (
+                <>
+                  {data.postcode}
+                  {data.street ? ` · ${data.street}` : ""}
+                  {data.city ? ` · ${data.city}` : ""}
+                </>
+              ) : (
+                <span className="text-slate-500">—</span>
+              )}
             </Row>
-          )}
-          {data.heaviestObjectKg !== "" && (
-            <Row icon={<Weight size={14} />} label="Zwaarste object">
-              {data.heaviestObjectKg} kg
+          </SidebarSection>
+
+          <SidebarSection title="Datum & tijd">
+            <Row icon={<CalendarIcon size={14} />} label="Wanneer">
+              {data.date ? `${formatDateLong(data.date)}` : <span className="text-slate-500">—</span>}
+              {data.timeSlot && <span className="ml-1 text-ink-2">· {data.timeSlot}</span>}
             </Row>
+          </SidebarSection>
+
+          {(items.length > 0 || data.heaviestObjectKg !== "") && (
+            <SidebarSection title="Wat moet er omhoog">
+              {items.length > 0 && (
+                <Row icon={<Package size={14} />} label="Objecten">
+                  <ul className="space-y-0.5">
+                    {items.map((it) => {
+                      const dims = formatDims(it);
+                      return (
+                        <li key={it.type}>
+                          {it.type}
+                          {dims && <span className="text-ink-3"> · {dims}</span>}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </Row>
+              )}
+              {data.heaviestObjectKg !== "" && (
+                <Row icon={<Weight size={14} />} label="Zwaarste object">
+                  {data.heaviestObjectKg} kg
+                </Row>
+              )}
+            </SidebarSection>
           )}
+
           {data.siteConditions.length > 0 && (
-            <Row icon={<Info size={14} />} label="Bijzonderheden">
-              <ul className="space-y-0.5">
-                {data.siteConditions.map((k) => (
-                  <li key={k}>{siteConditionTitle(k)}</li>
-                ))}
-              </ul>
-            </Row>
+            <SidebarSection title="Locatie & toegang">
+              <Row icon={<Info size={14} />} label="Bijzonderheden">
+                <ul className="space-y-0.5">
+                  {data.siteConditions.map((k) => (
+                    <li key={k}>{siteConditionTitle(k)}</li>
+                  ))}
+                </ul>
+              </Row>
+            </SidebarSection>
           )}
         </div>
 
@@ -862,6 +885,138 @@ function Row({
         </div>
         <div className="text-navy">{children}</div>
       </div>
+    </div>
+  );
+}
+
+function SidebarSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-blue/80">
+        {title}
+      </div>
+      <div className="mt-2.5 space-y-3.5 text-[13px]">{children}</div>
+    </div>
+  );
+}
+
+/* ───────────────────────── STEP 5 — CONTROLE ─────────────────── */
+
+function StepReview({
+  data,
+  onEdit,
+}: {
+  data: FormData;
+  onEdit: (step: Step) => void;
+}) {
+  const address =
+    [data.street, data.postcode, data.city].filter(Boolean).join(" · ") || "—";
+
+  return (
+    <div className="space-y-4">
+      <p className="text-[14px] text-ink-2">
+        Bijna klaar — controleer hieronder je aanvraag. Klopt iets niet? Tik op
+        “Wijzig”. Daarna bevestig je de boeking.
+      </p>
+
+      <ReviewSection title="Jouw gegevens" onEdit={() => onEdit(0)}>
+        <ReviewRow label="Naam">{data.customerName || "—"}</ReviewRow>
+        <ReviewRow label="Telefoon">{data.customerPhone || "—"}</ReviewRow>
+        {data.customerEmail && (
+          <ReviewRow label="E-mail">{data.customerEmail}</ReviewRow>
+        )}
+        <ReviewRow label="Adres">{address}</ReviewRow>
+      </ReviewSection>
+
+      <ReviewSection title="Datum & tijd" onEdit={() => onEdit(1)}>
+        <ReviewRow label="Wanneer">
+          {data.date ? formatDateLong(data.date) : "—"}
+          {data.timeSlot ? ` · ${data.timeSlot}` : ""}
+        </ReviewRow>
+      </ReviewSection>
+
+      <ReviewSection title="Wat moet er omhoog?" onEdit={() => onEdit(2)}>
+        <ReviewRow label="Objecten">
+          {data.items.length > 0 ? (
+            <ul className="space-y-0.5">
+              {data.items.map((it) => {
+                const dims = formatDims(it);
+                return (
+                  <li key={it.type}>
+                    {it.type}
+                    {dims && <span className="text-ink-3"> · {dims}</span>}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            "—"
+          )}
+        </ReviewRow>
+        <ReviewRow label="Zwaarste object">
+          {data.heaviestObjectKg !== "" ? `${data.heaviestObjectKg} kg` : "—"}
+        </ReviewRow>
+        {data.description && (
+          <ReviewRow label="Toelichting">{data.description}</ReviewRow>
+        )}
+      </ReviewSection>
+
+      <ReviewSection title="Locatie & toegang" onEdit={() => onEdit(3)}>
+        <ReviewRow label="Bijzonderheden">
+          {data.siteConditions.length > 0
+            ? data.siteConditions.map((k) => siteConditionTitle(k)).join(" · ")
+            : "Geen opgegeven"}
+        </ReviewRow>
+      </ReviewSection>
+    </div>
+  );
+}
+
+function ReviewSection({
+  title,
+  onEdit,
+  children,
+}: {
+  title: string;
+  onEdit: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-paper p-5">
+      <div className="flex items-center justify-between">
+        <h3 className="text-[12px] font-bold uppercase tracking-[0.1em] text-blue">
+          {title}
+        </h3>
+        <button
+          type="button"
+          onClick={onEdit}
+          className="text-[13px] font-semibold text-blue hover:underline"
+        >
+          Wijzig
+        </button>
+      </div>
+      <div className="mt-3 space-y-2.5">{children}</div>
+    </div>
+  );
+}
+
+function ReviewRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex gap-4 text-[14px]">
+      <span className="w-[120px] shrink-0 text-slate-500">{label}</span>
+      <span className="flex-1 font-medium text-navy">{children}</span>
     </div>
   );
 }
