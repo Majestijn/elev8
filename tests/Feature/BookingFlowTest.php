@@ -275,6 +275,7 @@ class BookingFlowTest extends TestCase
     {
         Http::fake(['graph.facebook.com/*' => Http::response(['messages' => [['id' => 'x']]], 200)]);
         config([
+            'whatsapp.driver' => 'meta',
             'whatsapp.token' => 'test-token',
             'whatsapp.phone_number_id' => '123456',
             'whatsapp.to' => '31600000000',
@@ -290,6 +291,7 @@ class BookingFlowTest extends TestCase
     {
         Http::fake(['graph.facebook.com/*' => Http::response(['messages' => [['id' => 'x']]], 200)]);
         config([
+            'whatsapp.driver' => 'meta',
             'whatsapp.token' => 'test-token',
             'whatsapp.phone_number_id' => '123456',
             'whatsapp.to' => '31611111111, 31622222222',
@@ -300,10 +302,29 @@ class BookingFlowTest extends TestCase
         Http::assertSentCount(2);
     }
 
-    public function test_no_whatsapp_notification_without_config(): void
+    public function test_callmebot_notification_is_sent_when_configured(): void
+    {
+        Http::fake(['api.callmebot.com/*' => Http::response('Message queued', 200)]);
+        config([
+            'whatsapp.driver' => 'callmebot',
+            'whatsapp.callmebot_recipients' => '31600000000:abc123',
+        ]);
+
+        $this->post('/aanvragen', $this->validPayload())->assertRedirect('/aanvragen');
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'api.callmebot.com')
+            && str_contains($request->url(), 'phone=31600000000'));
+    }
+
+    public function test_no_notification_without_config(): void
     {
         Http::fake();
-        config(['whatsapp.token' => null, 'whatsapp.phone_number_id' => null, 'whatsapp.to' => null]);
+        config([
+            'whatsapp.driver' => 'meta',
+            'whatsapp.token' => null,
+            'whatsapp.phone_number_id' => null,
+            'whatsapp.to' => null,
+        ]);
 
         $this->post('/aanvragen', $this->validPayload())->assertRedirect('/aanvragen');
 

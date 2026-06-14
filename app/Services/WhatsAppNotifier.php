@@ -8,19 +8,106 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Stuurt Chris een WhatsApp-melding bij een nieuwe aanvraag, via de Meta
- * WhatsApp Cloud API. Faalveilig: bij ontbrekende config of een fout gooit
- * dit nooit door (de boeking van de klant mag er niet op stuklopen).
+ * Stuurt een WhatsApp-melding bij een nieuwe aanvraag. Faalveilig: bij
+ * ontbrekende config of een fout gooit dit nooit door (de boeking van de
+ * klant mag er niet op stuklopen).
+ *
+ * Driver instelbaar via WHATSAPP_DRIVER:
+ *   - 'callmebot' : simpele HTTP-call, geen Meta nodig (MVP-route).
+ *   - 'meta'      : Meta WhatsApp Cloud API (officieel, template-based).
+ *   - anders      : niets sturen.
  */
 class WhatsAppNotifier
 {
     public function notifyNewBooking(Booking $booking): void
     {
+        match (config('whatsapp.driver')) {
+            'callmebot' => $this->sendViaCallMeBot($booking),
+            'meta' => $this->sendViaMeta($booking),
+            default => null,
+        };
+    }
+
+    /* ───────────────────────── CallMeBot (geen Meta) ───────────────────── */
+
+    private function sendViaCallMeBot(Booking $booking): void
+    {
+        $recipients = $this->callMeBotRecipients();
+        if (empty($recipients)) {
+            return;
+        }
+
+        $text = $this->message($booking);
+
+        foreach ($recipients as [$phone, $apikey]) {
+            try {
+                $response = Http::timeout(8)->get('https://api.callmebot.com/whatsapp.php', [
+                    'phone' => $phone,
+                    'apikey' => $apikey,
+                    'text' => $text,
+                ]);
+
+                if ($response->failed()) {
+                    Log::warning('CallMeBot-melding mislukt', [
+                        'phone' => $phone,
+                        'status' => $response->status(),
+                        'body' => $response->body(),
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('CallMeBot-melding gooide een exception', [
+                    'phone' => $phone,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Ontvangers uit CALLMEBOT_RECIPIENTS: "phone:apikey,phone:apikey".
+     * Elk nummer heeft bij CallMeBot een eigen apikey.
+     *
+     * @return array<int, array{0: string, 1: string}>
+     */
+    private function callMeBotRecipients(): array
+    {
+        return collect(preg_split('/[,;]/', (string) config('whatsapp.callmebot_recipients')))
+            ->map(fn ($pair) => trim($pair))
+            ->filter()
+            ->map(function ($pair) {
+                $parts = explode(':', $pair, 2);
+
+                return [trim($parts[0] ?? ''), trim($parts[1] ?? '')];
+            })
+            ->filter(fn ($p) => $p[0] !== '' && $p[1] !== '')
+            ->values()
+            ->all();
+    }
+
+    /** Vrije-tekst melding (CallMeBot heeft geen template nodig). */
+    private function message(Booking $booking): string
+    {
+        $types = collect($booking->items ?? [])->pluck('type')->implode(', ');
+        $place = $booking->city ?: $booking->postcode;
+        $when = Carbon::parse($booking->preferred_date)->format('d-m-Y').' '.$booking->time_slot;
+        $url = rtrim((string) config('app.url'), '/').'/elev8';
+
+        return "🚚 Nieuwe UrbanLift-aanvraag\n"
+            ."Van: {$booking->customer_name}\n"
+            ."Klus: ".trim($types.($place ? ' · '.$place : ''))."\n"
+            ."Wanneer: {$when} · {$booking->floor}e verdieping\n"
+            ."Tel: {$booking->customer_phone}\n"
+            ."Bekijk: {$url}";
+    }
+
+    /* ───────────────────────── Meta WhatsApp Cloud API ─────────────────── */
+
+    private function sendViaMeta(Booking $booking): void
+    {
         $token = config('whatsapp.token');
         $phoneNumberId = config('whatsapp.phone_number_id');
-        $recipients = $this->recipients();
+        $recipients = $this->metaRecipients();
 
-        // Niet (volledig) geconfigureerd → stil overslaan.
         if (! $token || ! $phoneNumberId || empty($recipients)) {
             return;
         }
@@ -43,7 +130,7 @@ class WhatsAppNotifier
                 'type' => 'body',
                 'parameters' => array_map(
                     fn (string $text) => ['type' => 'text', 'text' => $text],
-                    $this->bodyParameters($booking)
+                    $this->metaBodyParameters($booking)
                 ),
             ]];
         }
@@ -54,7 +141,6 @@ class WhatsAppNotifier
             $phoneNumberId
         );
 
-        // Eén bericht per ontvanger (bv. Chris + Stijn tijdens de transitie).
         foreach ($recipients as $to) {
             try {
                 $response = Http::withToken($token)
@@ -78,11 +164,11 @@ class WhatsAppNotifier
     }
 
     /**
-     * Eén of meer ontvangers uit WHATSAPP_TO, komma- of puntkomma-gescheiden.
+     * Eén of meer Meta-ontvangers uit WHATSAPP_TO, komma-gescheiden.
      *
      * @return array<int, string>
      */
-    private function recipients(): array
+    private function metaRecipients(): array
     {
         return collect(preg_split('/[,;]/', (string) config('whatsapp.to')))
             ->map(fn ($number) => trim($number))
@@ -92,12 +178,12 @@ class WhatsAppNotifier
     }
 
     /**
-     * Vier body-parameters voor een eigen template, in vaste volgorde:
+     * Vier body-parameters voor een eigen Meta-template, in vaste volgorde:
      * {{1}} naam · {{2}} klus + plaats · {{3}} wanneer · {{4}} telefoon.
      *
      * @return array<int, string>
      */
-    private function bodyParameters(Booking $booking): array
+    private function metaBodyParameters(Booking $booking): array
     {
         $types = collect($booking->items ?? [])->pluck('type')->implode(', ');
         $place = $booking->city ?: $booking->postcode;

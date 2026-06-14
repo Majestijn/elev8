@@ -3,6 +3,25 @@
 return [
     /*
     |--------------------------------------------------------------------------
+    | Driver
+    |--------------------------------------------------------------------------
+    | 'callmebot' = simpele WhatsApp-melding zonder Meta (MVP). 'meta' = Meta
+    | WhatsApp Cloud API. Iets anders = geen melding.
+    */
+    'driver' => env('WHATSAPP_DRIVER', 'callmebot'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | CallMeBot
+    |--------------------------------------------------------------------------
+    | Ontvangers als "phone:apikey", komma-gescheiden. Elk nummer haalt z'n
+    | eigen apikey op door het CallMeBot-nummer te appen (zie setup-instructies).
+    | Bv. "31611111111:1234567,31622222222:7654321"
+    */
+    'callmebot_recipients' => env('CALLMEBOT_RECIPIENTS'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Meta WhatsApp Cloud API
     |--------------------------------------------------------------------------
     | Voor de melding aan Chris bij een nieuwe aanvraag. Ontbreekt één van de
