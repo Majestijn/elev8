@@ -195,6 +195,17 @@ class BookingFlowTest extends TestCase
         Storage::disk('public')->assertExists($booking->photos[0]);
     }
 
+    public function test_heic_photo_is_accepted(): void
+    {
+        Storage::fake('public');
+
+        $this->post('/', $this->validPayload([
+            'photos' => [UploadedFile::fake()->create('iphone.heic', 200, 'image/heic')],
+        ]))->assertRedirect('/');
+
+        $this->assertCount(1, Booking::first()->photos);
+    }
+
     public function test_non_image_upload_is_rejected(): void
     {
         Storage::fake('public');

@@ -712,12 +712,17 @@ function StepLocation({
   setData: SetData;
   onToggle: (key: string) => void;
 }) {
-  function addPhotos(files: FileList | null) {
+  const [converting, setConverting] = useState(false);
+
+  async function addPhotos(files: FileList | null) {
     if (!files) return;
-    setData(
-      "photos",
-      [...data.photos, ...Array.from(files)].slice(0, MAX_PHOTOS)
-    );
+    setConverting(true);
+    try {
+      const converted = await Promise.all(Array.from(files).map(normalizePhoto));
+      setData("photos", [...data.photos, ...converted].slice(0, MAX_PHOTOS));
+    } finally {
+      setConverting(false);
+    }
   }
   function removePhoto(index: number) {
     setData(
@@ -756,6 +761,7 @@ function StepLocation({
 
       <PhotoUploader
         photos={data.photos}
+        converting={converting}
         onAdd={addPhotos}
         onRemove={removePhoto}
       />
@@ -763,12 +769,33 @@ function StepLocation({
   );
 }
 
+/** Zet een HEIC/HEIF-foto (iPhone) om naar JPEG zodat 'ie overal te tonen is. */
+async function normalizePhoto(file: File): Promise<File> {
+  const isHeic =
+    /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
+  if (!isHeic) return file;
+  try {
+    // Lazy import: de converter (WASM) wordt alleen geladen als er HEIC is.
+    const heic2any = (await import("heic2any")).default;
+    const out = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 });
+    const blob = Array.isArray(out) ? out[0] : out;
+    return new File([blob], file.name.replace(/\.(heic|heif)$/i, ".jpg"), {
+      type: "image/jpeg",
+    });
+  } catch {
+    // Lukt het niet, dan uploaden we het origineel (de server accepteert HEIC ook).
+    return file;
+  }
+}
+
 function PhotoUploader({
   photos,
+  converting,
   onAdd,
   onRemove,
 }: {
   photos: File[];
+  converting: boolean;
   onAdd: (files: FileList | null) => void;
   onRemove: (index: number) => void;
 }) {
@@ -812,17 +839,18 @@ function PhotoUploader({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 px-4 py-6 text-[14px] font-semibold text-blue transition-colors hover:border-blue/50 hover:bg-sky-50"
+          disabled={converting}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 px-4 py-6 text-[14px] font-semibold text-blue transition-colors hover:border-blue/50 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <ImagePlus size={18} />
-          Foto's toevoegen
+          {converting ? "Foto's omzetten…" : "Foto's toevoegen"}
         </button>
       )}
 
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,.heic,.heif"
         multiple
         className="hidden"
         onChange={(e) => {

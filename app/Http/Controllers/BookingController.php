@@ -63,7 +63,7 @@ class BookingController extends Controller
             'siteConditions' => ['nullable', 'array'],
             'siteConditions.*' => ['string', Rule::in(self::SITE_CONDITIONS)],
             'photos' => ['nullable', 'array', 'max:5'],
-            'photos.*' => ['file', 'mimes:jpeg,jpg,png,webp', 'max:8192'],
+            'photos.*' => ['file', 'mimes:jpeg,jpg,png,webp,heic,heif', 'max:8192'],
         ], [
             'customerName.required' => 'Vul je naam in.',
             'customerName.min' => 'Vul je volledige naam in.',
@@ -82,7 +82,7 @@ class BookingController extends Controller
             'floor.required' => 'Kies naar welke verdieping de lift moet.',
             'floor.between' => 'Kies een verdieping tussen 1 en 20.',
             'photos.max' => 'Je kunt maximaal 5 foto’s uploaden.',
-            'photos.*.mimes' => 'Alleen JPG-, PNG- of WEBP-afbeeldingen.',
+            'photos.*.mimes' => 'Alleen foto’s (JPG, PNG, WEBP of HEIC).',
             'photos.*.max' => 'Elke foto mag maximaal 8 MB zijn.',
         ]);
 
