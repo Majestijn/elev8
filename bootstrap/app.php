@@ -13,6 +13,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Railway (en Forge/Hetzner) zit achter een TLS-terminating proxy.
+        // Vertrouw de X-Forwarded-* headers zodat Laravel https-URL's genereert,
+        // anders worden CSS/JS als 'mixed content' geblokkeerd op de https-site.
+        $middleware->trustProxies(at: '*');
+
         $middleware->web(append: [
             HandleInertiaRequests::class,
         ]);
