@@ -4,8 +4,11 @@ set -e
 
 cd /var/www/html
 
-echo "[elev8] Running database migrations…"
-php artisan migrate --force
+# LET OP: migrate:fresh DROPT de hele database bij elke deploy (alle data weg).
+# Bewust gekozen tijdens de MVP-fase (alleen testdata). Vóór echte klanten
+# terugzetten naar `php artisan migrate --force` + incrementele migraties.
+echo "[elev8] Running fresh database migration (DROPT alle data!)…"
+php artisan migrate:fresh --force
 
 echo "[elev8] Linking storage (voor lokale public-foto's)…"
 php artisan storage:link || true

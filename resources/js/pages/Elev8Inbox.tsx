@@ -4,17 +4,14 @@ import {
   ArrowUp,
   Boxes,
   Calendar,
-  CheckCircle2,
   ClipboardList,
   Image as ImageIcon,
-  Inbox,
   Info,
   LogOut,
   Mail,
   MapPin,
   Package,
   Phone,
-  RotateCcw,
   Weight,
 } from "lucide-react";
 import { LogoMark } from "@/components/Brand";
@@ -22,19 +19,40 @@ import { siteConditionTitle } from "@/lib/site-conditions";
 import type { Booking, BookingItem } from "@/lib/types";
 import { cn, formatDateLong, relativeTime } from "@/lib/utils";
 
-export default function Elev8Inbox({ bookings }: { bookings: Booking[] }) {
-  const [tab, setTab] = useState<"new" | "handled">("new");
+/** De pijplijn: volgorde + label + pill-kleur per status. */
+const STATUS_ORDER = [
+  "requested",
+  "contacted",
+  "scheduled",
+  "completed",
+  "cancelled",
+] as const;
 
-  const requests = useMemo(
-    () =>
-      bookings
-        .slice()
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+const STATUS_META: Record<string, { label: string; pill: string }> = {
+  requested: { label: "Nieuw", pill: "bg-sky-100 text-blue" },
+  contacted: { label: "Contact gelegd", pill: "bg-amber-100 text-amber-700" },
+  scheduled: { label: "Ingepland", pill: "bg-violet-100 text-violet-700" },
+  completed: { label: "Afgerond", pill: "bg-green-soft text-green-deep" },
+  cancelled: { label: "Geannuleerd", pill: "bg-slate-100 text-slate-500" },
+};
+
+export default function Elev8Inbox({ bookings }: { bookings: Booking[] }) {
+  const [tab, setTab] = useState<string>("requested");
+
+  const sorted = useMemo(
+    () => bookings.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     [bookings]
   );
-  const newOnes = requests.filter((b) => !b.handledAt);
-  const handled = requests.filter((b) => b.handledAt);
-  const list = tab === "new" ? newOnes : handled;
+
+  const counts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const s of STATUS_ORDER) c[s] = 0;
+    for (const b of sorted) c[b.status] = (c[b.status] ?? 0) + 1;
+    return c;
+  }, [sorted]);
+
+  const list = sorted.filter((b) => b.status === tab);
+  const newCount = counts["requested"] ?? 0;
 
   return (
     <div className="min-h-screen bg-paper">
@@ -61,36 +79,28 @@ export default function Elev8Inbox({ bookings }: { bookings: Booking[] }) {
       </header>
 
       <main className="mx-auto max-w-[900px] px-6 py-8">
-        <div className="flex items-end justify-between">
-          <div>
-            <h1 className="text-[28px] font-bold tracking-tight text-navy">
-              Binnengekomen aanvragen
-            </h1>
-            <p className="mt-1 text-[14px] text-ink-2">
-              {newOnes.length === 0
-                ? "Geen nieuwe aanvragen op dit moment."
-                : `${newOnes.length} nieuwe ${
-                    newOnes.length === 1 ? "aanvraag" : "aanvragen"
-                  } om op te pakken.`}
-            </p>
-          </div>
-        </div>
+        <h1 className="text-[28px] font-bold tracking-tight text-navy">
+          Aanvragen
+        </h1>
+        <p className="mt-1 text-[14px] text-ink-2">
+          {newCount === 0
+            ? "Geen nieuwe aanvragen op dit moment."
+            : `${newCount} nieuwe ${
+                newCount === 1 ? "aanvraag" : "aanvragen"
+              } om op te pakken.`}
+        </p>
 
-        <div className="mt-6 flex gap-1 border-b border-slate-200">
-          <TabButton
-            active={tab === "new"}
-            onClick={() => setTab("new")}
-            icon={<Inbox size={15} />}
-            label="Nieuw"
-            count={newOnes.length}
-          />
-          <TabButton
-            active={tab === "handled"}
-            onClick={() => setTab("handled")}
-            icon={<CheckCircle2 size={15} />}
-            label="Opgepakt"
-            count={handled.length}
-          />
+        {/* Status-tabs */}
+        <div className="mt-6 flex flex-wrap gap-1 border-b border-slate-200">
+          {STATUS_ORDER.map((s) => (
+            <TabButton
+              key={s}
+              active={tab === s}
+              onClick={() => setTab(s)}
+              label={STATUS_META[s].label}
+              count={counts[s] ?? 0}
+            />
+          ))}
         </div>
 
         <div className="mt-6 space-y-4">
@@ -98,9 +108,7 @@ export default function Elev8Inbox({ bookings }: { bookings: Booking[] }) {
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
               <ClipboardList size={28} className="mx-auto text-slate-300" />
               <p className="mt-3 text-[14px] text-ink-2">
-                {tab === "new"
-                  ? "Nog geen openstaande aanvragen."
-                  : "Je hebt nog niets opgepakt."}
+                Niets in “{STATUS_META[tab]?.label ?? tab}”.
               </p>
             </div>
           ) : (
@@ -115,13 +123,11 @@ export default function Elev8Inbox({ bookings }: { bookings: Booking[] }) {
 function TabButton({
   active,
   onClick,
-  icon,
   label,
   count,
 }: {
   active: boolean;
   onClick: () => void;
-  icon: React.ReactNode;
   label: string;
   count: number;
 }) {
@@ -135,7 +141,6 @@ function TabButton({
           : "border-transparent text-slate-500 hover:text-navy"
       )}
     >
-      {icon}
       {label}
       <span
         className={cn(
@@ -149,15 +154,33 @@ function TabButton({
   );
 }
 
+function StatusPill({ status }: { status: string }) {
+  const meta = STATUS_META[status] ?? {
+    label: status,
+    pill: "bg-slate-100 text-slate-500",
+  };
+  return (
+    <span
+      className={cn(
+        "rounded-full px-2 py-0.5 text-[11px] font-bold",
+        meta.pill
+      )}
+    >
+      {meta.label}
+    </span>
+  );
+}
+
 function RequestCard({ booking: b }: { booking: Booking }) {
-  const handled = !!b.handledAt;
-  function toggle() {
+  function setStatus(status: string) {
+    if (status === b.status) return;
     router.post(
-      `/elev8/aanvragen/${b.id}/handled`,
-      { handled: !handled },
+      `/elev8/aanvragen/${b.id}/status`,
+      { status },
       { preserveScroll: true }
     );
   }
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -166,32 +189,27 @@ function RequestCard({ booking: b }: { booking: Booking }) {
             <h3 className="text-[18px] font-bold text-navy">
               {b.customerName || "Naamloos"}
             </h3>
-            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-blue">
-              {b.items.length} {b.items.length === 1 ? "object" : "objecten"}
-            </span>
+            <StatusPill status={b.status} />
           </div>
           <div className="mt-1 font-mono text-[12px] text-slate-400">
             {b.code} · {relativeTime(b.createdAt)}
           </div>
         </div>
 
-        {!handled ? (
-          <button
-            onClick={toggle}
-            className="inline-flex h-10 items-center gap-2 rounded-xl bg-green px-4 text-[13px] font-bold text-white transition-all hover:bg-green-dark active:scale-[0.98]"
+        <label className="flex items-center gap-2 text-[12px] font-semibold text-slate-500">
+          Status
+          <select
+            value={b.status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="h-10 rounded-xl border-2 border-slate-200 bg-white px-3 text-[13px] font-semibold text-navy transition-colors hover:border-slate-300 focus:border-blue focus:outline-none"
           >
-            <CheckCircle2 size={15} />
-            Markeer als opgepakt
-          </button>
-        ) : (
-          <button
-            onClick={toggle}
-            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-4 text-[13px] font-semibold text-ink-2 transition-colors hover:border-blue/40 hover:text-blue"
-          >
-            <RotateCcw size={14} />
-            Terug naar nieuw
-          </button>
-        )}
+            {STATUS_ORDER.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_META[s].label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-x-8 gap-y-3 border-t border-slate-100 pt-4 text-[14px] sm:grid-cols-2">

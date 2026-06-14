@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Booking;
+use App\Services\WhatsAppNotifier;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -48,7 +49,7 @@ class BookingController extends Controller
     /**
      * Sla een binnengekomen aanvraag op en toon het bedankt-scherm.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, WhatsAppNotifier $whatsapp): RedirectResponse
     {
         $validated = $request->validate([
             'customerName' => ['required', 'string', 'min:2', 'max:120'],
@@ -119,6 +120,9 @@ class BookingController extends Controller
             'time_slot' => $validated['timeSlot'],
             'status' => 'requested',
         ]);
+
+        // Meld de nieuwe aanvraag aan Chris (faalveilig — blokkeert de boeking nooit).
+        $whatsapp->notifyNewBooking($booking);
 
         return redirect('/aanvragen')->with('bookingCode', $booking->code);
     }

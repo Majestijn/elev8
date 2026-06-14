@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Booking;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -229,30 +230,69 @@ class BookingFlowTest extends TestCase
         $this->assertDatabaseCount('bookings', 0);
     }
 
-    public function test_request_can_be_marked_handled(): void
+    public function test_status_can_be_updated_through_the_pipeline(): void
     {
         $this->post('/aanvragen', $this->validPayload());
         $booking = Booking::first();
+        $this->assertSame('requested', $booking->status);
 
         $this->withSession(['elev8_authed' => true])
-            ->post("/elev8/aanvragen/{$booking->id}/handled", ['handled' => true])
+            ->post("/elev8/aanvragen/{$booking->id}/status", ['status' => 'contacted'])
             ->assertRedirect();
 
-        $this->assertNotNull($booking->fresh()->handled_at);
+        $booking->refresh();
+        $this->assertSame('contacted', $booking->status);
+        $this->assertNotNull($booking->handled_at);
 
-        // En weer terug naar nieuw
         $this->withSession(['elev8_authed' => true])
-            ->post("/elev8/aanvragen/{$booking->id}/handled", ['handled' => false]);
+            ->post("/elev8/aanvragen/{$booking->id}/status", ['status' => 'scheduled']);
 
-        $this->assertNull($booking->fresh()->handled_at);
+        $this->assertSame('scheduled', $booking->fresh()->status);
     }
 
-    public function test_handle_action_requires_auth(): void
+    public function test_invalid_status_is_rejected(): void
     {
         $this->post('/aanvragen', $this->validPayload());
         $booking = Booking::first();
 
-        $this->post("/elev8/aanvragen/{$booking->id}/handled", ['handled' => true])
+        $this->withSession(['elev8_authed' => true])
+            ->post("/elev8/aanvragen/{$booking->id}/status", ['status' => 'banana'])
+            ->assertSessionHasErrors('status');
+
+        $this->assertSame('requested', $booking->fresh()->status);
+    }
+
+    public function test_status_update_requires_auth(): void
+    {
+        $this->post('/aanvragen', $this->validPayload());
+        $booking = Booking::first();
+
+        $this->post("/elev8/aanvragen/{$booking->id}/status", ['status' => 'contacted'])
             ->assertForbidden();
+    }
+
+    public function test_whatsapp_notification_is_sent_when_configured(): void
+    {
+        Http::fake(['graph.facebook.com/*' => Http::response(['messages' => [['id' => 'x']]], 200)]);
+        config([
+            'whatsapp.token' => 'test-token',
+            'whatsapp.phone_number_id' => '123456',
+            'whatsapp.to' => '31600000000',
+        ]);
+
+        $this->post('/aanvragen', $this->validPayload())->assertRedirect('/aanvragen');
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'graph.facebook.com')
+            && $request['to'] === '31600000000');
+    }
+
+    public function test_no_whatsapp_notification_without_config(): void
+    {
+        Http::fake();
+        config(['whatsapp.token' => null, 'whatsapp.phone_number_id' => null, 'whatsapp.to' => null]);
+
+        $this->post('/aanvragen', $this->validPayload())->assertRedirect('/aanvragen');
+
+        Http::assertNothingSent();
     }
 }
