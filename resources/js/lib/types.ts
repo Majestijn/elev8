@@ -26,6 +26,8 @@ export interface Booking {
   siteConditions: string[];
   description: string | null;
   heaviestObjectKg: number | null;
+  floor: number;
+  heightMeters: number | null;
   postcode: string;
   street: string;
   city: string | null;

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import {
+  ArrowUp,
   Boxes,
   Calendar,
   CheckCircle2,
@@ -222,6 +223,10 @@ function RequestCard({ booking: b }: { booking: Booking }) {
         </Field>
         <Field icon={<Calendar size={14} />} label="Gewenste datum">
           {formatDateLong(b.date)} · {b.timeSlot}
+        </Field>
+        <Field icon={<ArrowUp size={14} />} label="Verdieping">
+          {b.floor}e verdieping
+          {b.heightMeters ? ` · ± ${b.heightMeters} m` : ""}
         </Field>
         <Field icon={<Boxes size={14} />} label="Objecten" className="sm:col-span-2">
           <ul className="space-y-0.5">

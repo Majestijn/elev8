@@ -29,6 +29,8 @@ class BookingFlowTest extends TestCase
             'siteConditions' => ['trees', 'narrow_street'],
             'description' => '3e verdieping, grachtenpand',
             'heaviestObjectKg' => 250,
+            'floor' => 3,
+            'heightMeters' => 9,
         ], $overrides);
     }
 
@@ -57,6 +59,8 @@ class BookingFlowTest extends TestCase
         $this->assertNull($booking->items[1]['length']);
         $this->assertSame(['trees', 'narrow_street'], $booking->site_conditions);
         $this->assertSame(250, $booking->heaviest_object_kg);
+        $this->assertSame(3, $booking->floor);
+        $this->assertSame(9, $booking->height_meters);
         $this->assertSame('requested', $booking->status);
         $this->assertNull($booking->handled_at);
         $this->assertStringStartsWith('UL-', $booking->code);
@@ -130,6 +134,29 @@ class BookingFlowTest extends TestCase
             ->assertSessionHasErrors('items.0.type');
 
         $this->assertDatabaseCount('bookings', 0);
+    }
+
+    public function test_floor_is_required_and_bounded(): void
+    {
+        $this->from('/')
+            ->post('/', $this->validPayload(['floor' => null]))
+            ->assertRedirect('/')
+            ->assertSessionHasErrors('floor');
+
+        $this->from('/')
+            ->post('/', $this->validPayload(['floor' => 25]))
+            ->assertRedirect('/')
+            ->assertSessionHasErrors('floor');
+
+        $this->assertDatabaseCount('bookings', 0);
+    }
+
+    public function test_height_meters_is_optional(): void
+    {
+        $this->post('/', $this->validPayload(['heightMeters' => null]))
+            ->assertRedirect('/');
+
+        $this->assertNull(Booking::first()->height_meters);
     }
 
     public function test_site_conditions_are_optional(): void

@@ -24,6 +24,10 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->unsignedInteger('heaviest_object_kg')->nullable();
 
+            // Bestemming (naar welke verdieping + geschatte hoogte in meters)
+            $table->unsignedSmallInteger('floor');
+            $table->unsignedSmallInteger('height_meters')->nullable();
+
             // Locatie
             $table->string('postcode');
             $table->string('street');

@@ -15,6 +15,8 @@ class Booking extends Model
         'site_conditions',
         'description',
         'heaviest_object_kg',
+        'floor',
+        'height_meters',
         'postcode',
         'street',
         'city',
@@ -30,6 +32,8 @@ class Booking extends Model
         'preferred_date' => 'date',
         'handled_at' => 'datetime',
         'heaviest_object_kg' => 'integer',
+        'floor' => 'integer',
+        'height_meters' => 'integer',
     ];
 
     /**
@@ -49,6 +53,8 @@ class Booking extends Model
             'siteConditions' => $this->site_conditions ?? [],
             'description' => $this->description,
             'heaviestObjectKg' => $this->heaviest_object_kg,
+            'floor' => $this->floor,
+            'heightMeters' => $this->height_meters,
             'postcode' => $this->postcode,
             'street' => $this->street,
             'city' => $this->city,

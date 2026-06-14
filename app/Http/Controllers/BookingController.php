@@ -58,6 +58,8 @@ class BookingController extends Controller
             'items.*.height' => ['nullable', 'integer', 'min:1', 'max:2000'],
             'description' => ['nullable', 'string', 'max:2000'],
             'heaviestObjectKg' => ['required', 'integer', 'min:1', 'max:100000'],
+            'floor' => ['required', 'integer', 'between:1,20'],
+            'heightMeters' => ['nullable', 'integer', 'min:1', 'max:300'],
             'siteConditions' => ['nullable', 'array'],
             'siteConditions.*' => ['string', Rule::in(self::SITE_CONDITIONS)],
         ], [
@@ -75,6 +77,8 @@ class BookingController extends Controller
             'items.*.type.required' => 'Kies per object wat het is.',
             'items.*.type.in' => 'Kies een geldige optie.',
             'heaviestObjectKg.required' => 'Geef een schatting van het gewicht.',
+            'floor.required' => 'Kies naar welke verdieping de lift moet.',
+            'floor.between' => 'Kies een verdieping tussen 1 en 20.',
         ]);
 
         $booking = Booking::create([
@@ -86,6 +90,8 @@ class BookingController extends Controller
             'site_conditions' => array_values($validated['siteConditions'] ?? []),
             'description' => isset($validated['description']) ? trim($validated['description']) : null,
             'heaviest_object_kg' => $validated['heaviestObjectKg'],
+            'floor' => $validated['floor'],
+            'height_meters' => $validated['heightMeters'] ?? null,
             'postcode' => strtoupper(trim($validated['postcode'])),
             'street' => trim($validated['street']),
             'city' => isset($validated['city']) ? trim($validated['city']) : null,

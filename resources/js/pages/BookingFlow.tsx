@@ -28,15 +28,18 @@ import type { JobType } from "@/lib/types";
 import { SITE_CONDITIONS, siteConditionTitle } from "@/lib/site-conditions";
 import { cn, formatDateLong } from "@/lib/utils";
 
-type Step = 0 | 1 | 2 | 3 | 4;
+type Step = 0 | 1 | 2 | 3 | 4 | 5;
 
 const STEP_LABELS = [
   "Jouw gegevens",
   "Datum & tijd",
+  "Verdieping",
   "Wat moet er omhoog?",
   "Locatie & toegang",
   "Controleren",
 ];
+
+const FLOOR_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1);
 
 const JOB_OPTIONS: Array<{
   value: JobType;
@@ -85,6 +88,8 @@ interface FormData {
   city: string;
   date: string;
   timeSlot: string;
+  floor: number | "";
+  heightMeters: number | "";
   items: ItemDraft[];
   siteConditions: string[];
   description: string;
@@ -107,6 +112,8 @@ export default function BookingFlow() {
       city: "",
       date: tomorrowISO(),
       timeSlot: "10:00",
+      floor: "",
+      heightMeters: "",
       items: [],
       siteConditions: [],
       description: "",
@@ -119,7 +126,7 @@ export default function BookingFlow() {
   }
 
   function next() {
-    setStep((s) => Math.min(4, s + 1) as Step);
+    setStep((s) => Math.min(5, s + 1) as Step);
   }
   function back() {
     setStep((s) => Math.max(0, s - 1) as Step);
@@ -193,14 +200,15 @@ export default function BookingFlow() {
         data.street.trim().length > 1
       );
     if (step === 1) return !!data.date && !!data.timeSlot;
-    if (step === 2) return data.items.length > 0 && !!data.heaviestObjectKg;
-    if (step === 3) return true; // bijzonderheden zijn optioneel
-    if (step === 4) return true; // controlepagina
+    if (step === 2) return !!data.floor; // verdieping verplicht
+    if (step === 3) return data.items.length > 0 && !!data.heaviestObjectKg;
+    if (step === 4) return true; // bijzonderheden zijn optioneel
+    if (step === 5) return true; // controlepagina
     return false;
   })();
 
   function onPrimary() {
-    if (step === 4) submit();
+    if (step === 5) submit();
     else next();
   }
 
@@ -229,7 +237,8 @@ export default function BookingFlow() {
                 </>
               )}
               {step === 1 && <StepWhen data={data} setData={setData} />}
-              {step === 2 && (
+              {step === 2 && <StepFloor data={data} setData={setData} />}
+              {step === 3 && (
                 <StepJob
                   data={data}
                   setData={setData}
@@ -238,16 +247,16 @@ export default function BookingFlow() {
                   onDims={updateDims}
                 />
               )}
-              {step === 3 && (
+              {step === 4 && (
                 <StepLocation data={data} onToggle={toggleCondition} />
               )}
-              {step === 4 && <StepReview data={data} onEdit={setStep} />}
+              {step === 5 && <StepReview data={data} onEdit={setStep} />}
             </div>
           </div>
           <BottomBar step={step} canContinue={canContinue && !processing} onPrimary={onPrimary} processing={processing} />
         </div>
 
-        {step < 4 && <Sidebar data={data} />}
+        {step < 5 && <Sidebar data={data} />}
       </div>
     </div>
   );
@@ -298,6 +307,7 @@ function StepHeading({ step }: { step: Step }) {
   const titles = [
     "Voor wie en waar moet de lift komen?",
     "Wanneer wil je de lift?",
+    "Naar welke verdieping moet de lift?",
     "Wat moet er omhoog?",
     "Zijn er bijzonderheden op locatie?",
     "Klopt alles?",
@@ -443,7 +453,57 @@ function StepWhen({ data, setData }: { data: FormData; setData: SetData }) {
   );
 }
 
-/* ───────────────────────────── STEP 3 — OBJECTEN + GEWICHT ───── */
+/* ─────────────────────────── STEP 3 — VERDIEPING ─────────────── */
+
+function StepFloor({ data, setData }: { data: FormData; setData: SetData }) {
+  return (
+    <div className="space-y-8">
+      <div>
+        <CustomerLabel>Naar welke verdieping moet de lift?</CustomerLabel>
+        <div className="mt-3 grid grid-cols-5 gap-2 sm:grid-cols-10">
+          {FLOOR_OPTIONS.map((f) => (
+            <SelectButton
+              key={f}
+              active={data.floor === f}
+              onClick={() => setData("floor", f)}
+            >
+              {f}
+            </SelectButton>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <CustomerLabel>Hoeveel meter is dat ongeveer?</CustomerLabel>
+        <div className="relative mt-3 w-[170px]">
+          <input
+            type="number"
+            min={1}
+            inputMode="numeric"
+            value={data.heightMeters}
+            onChange={(e) =>
+              setData(
+                "heightMeters",
+                e.target.value === "" ? "" : parseInt(e.target.value, 10) || ""
+              )
+            }
+            placeholder="Bv. 9"
+            className="h-12 w-full rounded-xl border-2 border-slate-200 bg-paper pl-4 pr-14 text-[15px] font-semibold text-navy placeholder:font-normal placeholder:text-slate-400 transition-colors hover:border-slate-300 focus:border-blue focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-slate-400">
+            meter
+          </span>
+        </div>
+        <p className="mt-3 text-[12px] text-slate-500">
+          Een inschatting is voldoende — hiermee kiest UrbanLift een lift met
+          genoeg reikhoogte.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────────── STEP 4 — OBJECTEN + GEWICHT ───── */
 
 function StepJob({
   data,
@@ -731,7 +791,7 @@ function BottomBar({
   onPrimary: () => void;
   processing: boolean;
 }) {
-  const label = step === 4 ? (processing ? "Bezig…" : "Bevestig boeking") : "Verder";
+  const label = step === 5 ? (processing ? "Bezig…" : "Bevestig boeking") : "Verder";
   return (
     <div className="sticky bottom-0 z-20 border-t border-slate-200 bg-paper">
       <div className="mx-auto flex w-full max-w-[720px] items-center justify-end px-6 py-4">
@@ -788,6 +848,15 @@ function Sidebar({ data }: { data: FormData }) {
               {data.timeSlot ? ` · ${data.timeSlot}` : ""}
             </SRow>
           </SidebarSection>
+
+          {data.floor !== "" && (
+            <SidebarSection title="Verdieping">
+              <SRow label="Verdieping">{data.floor}e</SRow>
+              {data.heightMeters !== "" && (
+                <SRow label="Hoogte">± {data.heightMeters} m</SRow>
+              )}
+            </SidebarSection>
+          )}
 
           {(items.length > 0 || data.heaviestObjectKg !== "") && (
             <SidebarSection title="Wat moet er omhoog">
@@ -898,7 +967,16 @@ function StepReview({
         </ReviewRow>
       </ReviewSection>
 
-      <ReviewSection title="Wat moet er omhoog?" onEdit={() => onEdit(2)}>
+      <ReviewSection title="Verdieping" onEdit={() => onEdit(2)}>
+        <ReviewRow label="Verdieping">
+          {data.floor !== "" ? `${data.floor}e verdieping` : "—"}
+        </ReviewRow>
+        <ReviewRow label="Hoogte">
+          {data.heightMeters !== "" ? `± ${data.heightMeters} m` : "—"}
+        </ReviewRow>
+      </ReviewSection>
+
+      <ReviewSection title="Wat moet er omhoog?" onEdit={() => onEdit(3)}>
         <ReviewRow label="Objecten">
           {data.items.length > 0 ? (
             <ul className="space-y-0.5">
@@ -924,7 +1002,7 @@ function StepReview({
         )}
       </ReviewSection>
 
-      <ReviewSection title="Locatie & toegang" onEdit={() => onEdit(3)}>
+      <ReviewSection title="Locatie & toegang" onEdit={() => onEdit(4)}>
         <ReviewRow label="Bijzonderheden">
           {data.siteConditions.length > 0
             ? data.siteConditions.map((k) => siteConditionTitle(k)).join(" · ")
