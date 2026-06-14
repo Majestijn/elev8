@@ -17,8 +17,8 @@ return new class extends Migration
             $table->string('customer_email')->nullable();
             $table->string('customer_phone');
 
-            // Klus
-            $table->string('job_type');
+            // Klus — objecten als JSON-array: [{type, length, width, height}, ...]
+            $table->jsonb('items');
             $table->text('description')->nullable();
             $table->unsignedInteger('heaviest_object_kg')->nullable();
 

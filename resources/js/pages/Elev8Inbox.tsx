@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import {
+  Boxes,
   Calendar,
   CheckCircle2,
   ClipboardList,
@@ -13,7 +14,7 @@ import {
   RotateCcw,
   Weight,
 } from "lucide-react";
-import type { Booking } from "@/lib/types";
+import type { Booking, BookingItem } from "@/lib/types";
 import { cn, formatDateLong, relativeTime } from "@/lib/utils";
 
 export default function Elev8Inbox({ bookings }: { bookings: Booking[] }) {
@@ -163,7 +164,7 @@ function RequestCard({ booking: b }: { booking: Booking }) {
               {b.customerName || "Naamloos"}
             </h3>
             <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-blue">
-              {b.jobType}
+              {b.items.length} {b.items.length === 1 ? "object" : "objecten"}
             </span>
           </div>
           <div className="mt-1 font-mono text-[12px] text-slate-400">
@@ -221,6 +222,13 @@ function RequestCard({ booking: b }: { booking: Booking }) {
         <Field icon={<Calendar size={14} />} label="Gewenste datum">
           {formatDateLong(b.date)} · {b.timeSlot}
         </Field>
+        <Field icon={<Boxes size={14} />} label="Objecten" className="sm:col-span-2">
+          <ul className="space-y-0.5">
+            {b.items.map((it, i) => (
+              <li key={i}>{itemLine(it)}</li>
+            ))}
+          </ul>
+        </Field>
         <Field icon={<Weight size={14} />} label="Zwaarste object">
           {b.heaviestObjectKg ? `${b.heaviestObjectKg} kg` : "—"}
         </Field>
@@ -234,17 +242,27 @@ function RequestCard({ booking: b }: { booking: Booking }) {
   );
 }
 
+/** Formatteer één object voor de inbox, bv. "Piano (180×60×120 cm)". */
+function itemLine(it: BookingItem): string {
+  const dims = [it.length, it.width, it.height];
+  const hasDims = dims.some((d) => d != null);
+  const dimStr = hasDims ? ` (${dims.map((d) => d ?? "?").join("×")} cm)` : "";
+  return `${it.type}${dimStr}`;
+}
+
 function Field({
   icon,
   label,
   children,
+  className,
 }: {
   icon: React.ReactNode;
   label: string;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="flex items-start gap-2.5">
+    <div className={cn("flex items-start gap-2.5", className)}>
       <span className="mt-0.5 text-slate-400">{icon}</span>
       <div>
         <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">

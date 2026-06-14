@@ -43,7 +43,11 @@ class BookingController extends Controller
             'city' => ['nullable', 'string', 'max:120'],
             'date' => ['required', 'date', 'after_or_equal:today'],
             'timeSlot' => ['required', 'string', 'max:20'],
-            'jobType' => ['required', 'string', Rule::in(self::JOB_TYPES)],
+            'items' => ['required', 'array', 'min:1', 'max:20'],
+            'items.*.type' => ['required', 'string', Rule::in(self::JOB_TYPES)],
+            'items.*.length' => ['nullable', 'integer', 'min:1', 'max:2000'],
+            'items.*.width' => ['nullable', 'integer', 'min:1', 'max:2000'],
+            'items.*.height' => ['nullable', 'integer', 'min:1', 'max:2000'],
             'description' => ['nullable', 'string', 'max:2000'],
             'heaviestObjectKg' => ['required', 'integer', 'min:1', 'max:100000'],
         ], [
@@ -56,8 +60,10 @@ class BookingController extends Controller
             'street.required' => 'Vul straat en huisnummer in.',
             'date.required' => 'Kies een datum.',
             'date.after_or_equal' => 'Kies een datum vanaf vandaag.',
-            'jobType.required' => 'Kies wat er omhoog moet.',
-            'jobType.in' => 'Kies een geldige optie.',
+            'items.required' => 'Voeg minstens één object toe.',
+            'items.min' => 'Voeg minstens één object toe.',
+            'items.*.type.required' => 'Kies per object wat het is.',
+            'items.*.type.in' => 'Kies een geldige optie.',
             'heaviestObjectKg.required' => 'Geef een schatting van het gewicht.',
         ]);
 
@@ -66,7 +72,7 @@ class BookingController extends Controller
             'customer_name' => trim($validated['customerName']),
             'customer_email' => isset($validated['customerEmail']) ? trim($validated['customerEmail']) : null,
             'customer_phone' => trim($validated['customerPhone']),
-            'job_type' => $validated['jobType'],
+            'items' => $this->normalizeItems($validated['items']),
             'description' => isset($validated['description']) ? trim($validated['description']) : null,
             'heaviest_object_kg' => $validated['heaviestObjectKg'],
             'postcode' => strtoupper(trim($validated['postcode'])),
@@ -78,6 +84,22 @@ class BookingController extends Controller
         ]);
 
         return redirect('/')->with('bookingCode', $booking->code);
+    }
+
+    /**
+     * Maak van de aangeleverde objecten een schone, vaste vorm.
+     *
+     * @param  array<int, array<string, mixed>>  $items
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeItems(array $items): array
+    {
+        return array_values(array_map(fn (array $item) => [
+            'type' => $item['type'],
+            'length' => $item['length'] ?? null,
+            'width' => $item['width'] ?? null,
+            'height' => $item['height'] ?? null,
+        ], $items));
     }
 
     /**

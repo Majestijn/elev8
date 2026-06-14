@@ -22,7 +22,10 @@ class BookingFlowTest extends TestCase
             'city' => 'Amsterdam',
             'date' => now()->addDay()->toDateString(),
             'timeSlot' => '10:00',
-            'jobType' => 'Piano',
+            'items' => [
+                ['type' => 'Piano', 'length' => 180, 'width' => 60, 'height' => 120],
+                ['type' => 'Bank'],
+            ],
             'description' => '3e verdieping, grachtenpand',
             'heaviestObjectKg' => 250,
         ], $overrides);
@@ -46,7 +49,11 @@ class BookingFlowTest extends TestCase
         $booking = Booking::first();
 
         $this->assertSame('Jan de Vries', $booking->customer_name);
-        $this->assertSame('Piano', $booking->job_type);
+        $this->assertCount(2, $booking->items);
+        $this->assertSame('Piano', $booking->items[0]['type']);
+        $this->assertSame(180, $booking->items[0]['length']);
+        $this->assertSame('Bank', $booking->items[1]['type']);
+        $this->assertNull($booking->items[1]['length']);
         $this->assertSame(250, $booking->heaviest_object_kg);
         $this->assertSame('requested', $booking->status);
         $this->assertNull($booking->handled_at);
@@ -96,8 +103,31 @@ class BookingFlowTest extends TestCase
                 ->component('Elev8Inbox')
                 ->has('bookings', 1)
                 ->where('bookings.0.customerName', 'Jan de Vries')
-                ->where('bookings.0.jobType', 'Piano')
+                ->where('bookings.0.items.0.type', 'Piano')
+                ->where('bookings.0.items.0.length', 180)
             );
+    }
+
+    public function test_at_least_one_object_is_required(): void
+    {
+        $this->from('/')
+            ->post('/', $this->validPayload(['items' => []]))
+            ->assertRedirect('/')
+            ->assertSessionHasErrors('items');
+
+        $this->assertDatabaseCount('bookings', 0);
+    }
+
+    public function test_object_without_type_is_rejected(): void
+    {
+        $this->from('/')
+            ->post('/', $this->validPayload([
+                'items' => [['length' => 100]],
+            ]))
+            ->assertRedirect('/')
+            ->assertSessionHasErrors('items.0.type');
+
+        $this->assertDatabaseCount('bookings', 0);
     }
 
     public function test_request_can_be_marked_handled(): void

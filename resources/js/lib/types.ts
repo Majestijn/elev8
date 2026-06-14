@@ -7,6 +7,14 @@ export type JobType =
   | "Bouwmaterialen"
   | "Anders";
 
+/** Eén object dat omhoog moet; afmetingen in cm zijn optioneel. */
+export interface BookingItem {
+  type: JobType;
+  length: number | null;
+  width: number | null;
+  height: number | null;
+}
+
 /** Booking zoals de server het naar de frontend stuurt (camelCase). */
 export interface Booking {
   id: number;
@@ -14,7 +22,7 @@ export interface Booking {
   customerName: string;
   customerEmail: string | null;
   customerPhone: string;
-  jobType: JobType;
+  items: BookingItem[];
   description: string | null;
   heaviestObjectKg: number | null;
   postcode: string;

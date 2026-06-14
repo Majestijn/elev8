@@ -5,19 +5,15 @@ import {
   Calendar as CalendarIcon,
   CheckCircle2,
   ChevronLeft,
-  Hammer,
   MapPin,
-  Music,
   Package,
   PackageOpen,
   Phone,
-  Refrigerator,
+  Plus,
   Shield,
-  Sofa,
   Sparkles,
-  Truck,
+  Trash2,
   User,
-  WashingMachine,
   Weight,
 } from "lucide-react";
 import {
@@ -25,7 +21,6 @@ import {
   CustomerLabel,
   CustomerTextarea,
 } from "@/components/Input";
-import { CustomerRadioCard, CustomerRadioGroup } from "@/components/RadioCard";
 import { SelectButton } from "@/components/SelectButton";
 import { Brand } from "@/components/Brand";
 import type { JobType } from "@/lib/types";
@@ -35,22 +30,31 @@ type Step = 0 | 1 | 2;
 
 const STEP_LABELS = ["Jouw gegevens", "Datum & tijd", "Wat moet er omhoog?"];
 
-const JOB_OPTIONS: Array<{
-  value: JobType;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-}> = [
-  { value: "Bank", title: "Bank of meubel", description: "Eén of twee zware meubels", icon: <Sofa size={28} /> },
-  { value: "Koelkast", title: "Koelkast", description: "Ook Amerikaanse maten", icon: <Refrigerator size={28} /> },
-  { value: "Wasmachine", title: "Wasmachine of droger", description: "Standaard witgoed", icon: <WashingMachine size={28} /> },
-  { value: "Volledige verhuizing", title: "Volledige verhuizing", description: "Studio tot 3-kamer appartement", icon: <Truck size={28} /> },
-  { value: "Piano", title: "Piano of vleugel", description: "Zware, kwetsbare last", icon: <Music size={28} /> },
-  { value: "Bouwmaterialen", title: "Bouwmaterialen", description: "Gips, cement, isolatie, paletten", icon: <Hammer size={28} /> },
-  { value: "Anders", title: "Iets anders", description: "Vertel het ons hieronder", icon: <Package size={28} /> },
+const JOB_TYPES: { value: JobType; label: string }[] = [
+  { value: "Bank", label: "Bank of meubel" },
+  { value: "Koelkast", label: "Koelkast" },
+  { value: "Wasmachine", label: "Wasmachine of droger" },
+  { value: "Volledige verhuizing", label: "Volledige verhuizing" },
+  { value: "Piano", label: "Piano of vleugel" },
+  { value: "Bouwmaterialen", label: "Bouwmaterialen" },
+  { value: "Anders", label: "Iets anders" },
 ];
 
 const WEIGHT_PRESETS = [25, 50, 100, 150, 250];
+
+/** Eén object-rij in het formulier; lege string = nog niet ingevuld. */
+interface ItemDraft {
+  id: number;
+  type: JobType | "";
+  length: number | "";
+  width: number | "";
+  height: number | "";
+}
+
+let itemSeq = 0;
+function emptyItem(): ItemDraft {
+  return { id: ++itemSeq, type: "", length: "", width: "", height: "" };
+}
 
 function tomorrowISO() {
   const t = new Date();
@@ -63,23 +67,40 @@ interface FlashProps {
   flash?: { bookingCode?: string | null };
 }
 
+interface FormData {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  postcode: string;
+  street: string;
+  city: string;
+  date: string;
+  timeSlot: string;
+  items: ItemDraft[];
+  description: string;
+  heaviestObjectKg: number | "";
+}
+
+type SetData = <K extends keyof FormData>(key: K, value: FormData[K]) => void;
+
 export default function BookingFlow() {
   const { flash } = usePage<FlashProps>().props;
   const [step, setStep] = useState<Step>(0);
 
-  const { data, setData, post, processing, errors } = useForm({
-    customerName: "",
-    customerEmail: "",
-    customerPhone: "",
-    postcode: "",
-    street: "",
-    city: "",
-    date: tomorrowISO(),
-    timeSlot: "10:00",
-    jobType: "" as JobType | "",
-    description: "",
-    heaviestObjectKg: "" as number | "",
-  });
+  const { data, setData, post, processing, errors, transform } =
+    useForm<FormData>({
+      customerName: "",
+      customerEmail: "",
+      customerPhone: "",
+      postcode: "",
+      street: "",
+      city: "",
+      date: tomorrowISO(),
+      timeSlot: "10:00",
+      items: [emptyItem()],
+      description: "",
+      heaviestObjectKg: "",
+    });
 
   // Done-scherm zodra de server een referentiecode heeft teruggestuurd.
   if (flash?.bookingCode) {
@@ -93,7 +114,36 @@ export default function BookingFlow() {
     setStep((s) => Math.max(0, s - 1) as Step);
   }
 
+  /* ── object-lijst helpers ── */
+  function addItem() {
+    setData("items", [...data.items, emptyItem()]);
+  }
+  function removeItem(index: number) {
+    setData(
+      "items",
+      data.items.filter((_, i) => i !== index)
+    );
+  }
+  function updateItem(index: number, patch: Partial<ItemDraft>) {
+    setData(
+      "items",
+      data.items.map((it, i) => (i === index ? { ...it, ...patch } : it))
+    );
+  }
+
   function submit() {
+    // Strip lege objecten + zet lege afmetingen om naar null vóór verzenden.
+    transform((d) => ({
+      ...d,
+      items: d.items
+        .filter((it) => it.type !== "")
+        .map((it) => ({
+          type: it.type,
+          length: it.length === "" ? null : it.length,
+          width: it.width === "" ? null : it.width,
+          height: it.height === "" ? null : it.height,
+        })),
+    }));
     post("/", {
       preserveScroll: true,
       onError: () => setStep(0),
@@ -109,7 +159,8 @@ export default function BookingFlow() {
         data.street.trim().length > 1
       );
     if (step === 1) return !!data.date && !!data.timeSlot;
-    if (step === 2) return !!data.jobType && !!data.heaviestObjectKg;
+    if (step === 2)
+      return data.items.some((it) => it.type !== "") && !!data.heaviestObjectKg;
     return false;
   })();
 
@@ -130,7 +181,15 @@ export default function BookingFlow() {
             <div className="mt-8">
               {step === 0 && <StepDetails data={data} setData={setData} errors={errors} />}
               {step === 1 && <StepWhen data={data} setData={setData} />}
-              {step === 2 && <StepJob data={data} setData={setData} />}
+              {step === 2 && (
+                <StepJob
+                  data={data}
+                  setData={setData}
+                  addItem={addItem}
+                  removeItem={removeItem}
+                  updateItem={updateItem}
+                />
+              )}
             </div>
           </div>
           <BottomBar step={step} canContinue={canContinue && !processing} onPrimary={onPrimary} processing={processing} />
@@ -205,22 +264,6 @@ function StepHeading({ step }: { step: Step }) {
 }
 
 /* ───────────────────────────── STEP 1 — GEGEVENS ─────────────── */
-
-interface FormData {
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  postcode: string;
-  street: string;
-  city: string;
-  date: string;
-  timeSlot: string;
-  jobType: JobType | "";
-  description: string;
-  heaviestObjectKg: number | "";
-}
-
-type SetData = <K extends keyof FormData>(key: K, value: FormData[K]) => void;
 
 function StepDetails({
   data,
@@ -346,28 +389,56 @@ function StepWhen({ data, setData }: { data: FormData; setData: SetData }) {
   );
 }
 
-/* ───────────────────────────── STEP 3 — WAT + GEWICHT ───────── */
+/* ───────────────────────────── STEP 3 — OBJECTEN + GEWICHT ───── */
 
-function StepJob({ data, setData }: { data: FormData; setData: SetData }) {
+function StepJob({
+  data,
+  setData,
+  addItem,
+  removeItem,
+  updateItem,
+}: {
+  data: FormData;
+  setData: SetData;
+  addItem: () => void;
+  removeItem: (index: number) => void;
+  updateItem: (index: number, patch: Partial<ItemDraft>) => void;
+}) {
+  const isCustomWeight =
+    data.heaviestObjectKg !== "" &&
+    !WEIGHT_PRESETS.includes(data.heaviestObjectKg as number);
+
   return (
     <div>
-      <CustomerRadioGroup
-        value={data.jobType || undefined}
-        onValueChange={(v) => setData("jobType", v as JobType)}
-        className="flex flex-col gap-3"
-      >
-        {JOB_OPTIONS.map((j) => (
-          <CustomerRadioCard
-            key={j.value}
-            value={j.value}
-            title={j.title}
-            description={j.description}
-            icon={j.icon}
+      <CustomerLabel>Welke objecten moeten omhoog?</CustomerLabel>
+      <p className="mt-1 text-[12px] text-slate-500">
+        Voeg alles toe wat de lift in moet. Afmetingen invullen mag, maar hoeft
+        niet.
+      </p>
+
+      <div className="mt-3 space-y-3">
+        {data.items.map((item, i) => (
+          <ObjectRow
+            key={item.id}
+            item={item}
+            canRemove={data.items.length > 1}
+            onChange={(patch) => updateItem(i, patch)}
+            onRemove={() => removeItem(i)}
           />
         ))}
-      </CustomerRadioGroup>
+      </div>
 
-      <div className="mt-10">
+      <button
+        type="button"
+        onClick={addItem}
+        className="mt-3 inline-flex items-center gap-2 rounded-xl border-2 border-dashed border-slate-300 px-4 py-2.5 text-[14px] font-semibold text-blue transition-colors hover:border-blue/50 hover:bg-sky-50"
+      >
+        <Plus size={16} />
+        Object toevoegen
+      </button>
+
+      {/* Gewicht zwaarste object */}
+      <div className="mt-9">
         <CustomerLabel>Hoe zwaar is het zwaarste object? (kg)</CustomerLabel>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {WEIGHT_PRESETS.map((w) => (
@@ -380,22 +451,32 @@ function StepJob({ data, setData }: { data: FormData; setData: SetData }) {
               {w} kg
             </SelectButton>
           ))}
-          <CustomerInput
-            type="number"
-            min={1}
-            value={data.heaviestObjectKg === "" ? "" : data.heaviestObjectKg}
-            onChange={(e) =>
-              setData("heaviestObjectKg", parseInt(e.target.value, 10) || "")
-            }
-            placeholder="Anders…"
-            className="max-w-[120px]"
-          />
+          <div className="relative">
+            <input
+              type="number"
+              min={1}
+              inputMode="numeric"
+              value={isCustomWeight ? data.heaviestObjectKg : ""}
+              onChange={(e) =>
+                setData(
+                  "heaviestObjectKg",
+                  e.target.value === "" ? "" : parseInt(e.target.value, 10) || ""
+                )
+              }
+              placeholder="Anders"
+              className="h-12 w-[132px] rounded-xl border-2 border-slate-200 bg-paper pl-4 pr-9 text-[15px] font-semibold text-navy placeholder:font-normal placeholder:text-slate-400 transition-colors hover:border-slate-300 focus:border-blue focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            />
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-slate-400">
+              kg
+            </span>
+          </div>
         </div>
         <p className="mt-3 text-[12px] text-slate-500">
           Een schatting is prima — hiermee kiest elev8 de juiste lift.
         </p>
       </div>
 
+      {/* Toelichting */}
       <div className="mt-8">
         <CustomerLabel>Korte omschrijving (optioneel)</CustomerLabel>
         <CustomerTextarea
@@ -407,6 +488,102 @@ function StepJob({ data, setData }: { data: FormData; setData: SetData }) {
         />
       </div>
     </div>
+  );
+}
+
+function ObjectRow({
+  item,
+  canRemove,
+  onChange,
+  onRemove,
+}: {
+  item: ItemDraft;
+  canRemove: boolean;
+  onChange: (patch: Partial<ItemDraft>) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border-2 border-slate-200 bg-paper p-4">
+      <div className="flex items-center gap-3">
+        <select
+          value={item.type}
+          onChange={(e) => onChange({ type: e.target.value as JobType })}
+          className={cn(
+            "h-11 flex-1 rounded-xl border-2 border-slate-200 bg-paper px-3 text-[15px] font-semibold text-navy transition-colors hover:border-slate-300 focus:border-blue focus:outline-none",
+            item.type === "" && "text-slate-400"
+          )}
+        >
+          <option value="" disabled>
+            Kies een object…
+          </option>
+          {JOB_TYPES.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+        {canRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label="Object verwijderen"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-slate-200 text-slate-400 transition-colors hover:border-red-300 hover:text-red-500"
+          >
+            <Trash2 size={18} />
+          </button>
+        )}
+      </div>
+
+      <div className="mt-3">
+        <div className="text-[12px] font-medium text-slate-500">
+          Afmetingen (optioneel)
+        </div>
+        <div className="mt-1.5 flex items-center gap-2">
+          <DimInput
+            value={item.length}
+            placeholder="L"
+            onChange={(v) => onChange({ length: v })}
+          />
+          <span className="text-slate-400">×</span>
+          <DimInput
+            value={item.width}
+            placeholder="B"
+            onChange={(v) => onChange({ width: v })}
+          />
+          <span className="text-slate-400">×</span>
+          <DimInput
+            value={item.height}
+            placeholder="H"
+            onChange={(v) => onChange({ height: v })}
+          />
+          <span className="ml-1 text-[13px] text-slate-400">cm</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DimInput({
+  value,
+  placeholder,
+  onChange,
+}: {
+  value: number | "";
+  placeholder: string;
+  onChange: (v: number | "") => void;
+}) {
+  return (
+    <input
+      type="number"
+      min={1}
+      inputMode="numeric"
+      placeholder={placeholder}
+      value={value}
+      onChange={(e) =>
+        onChange(e.target.value === "" ? "" : parseInt(e.target.value, 10) || "")
+      }
+      className="h-11 w-16 rounded-xl border-2 border-slate-200 bg-paper text-center text-[15px] text-navy placeholder:text-slate-400 transition-colors hover:border-slate-300 focus:border-blue focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+    />
   );
 }
 
@@ -447,7 +624,14 @@ function BottomBar({
 
 /* ────────────────────────── RIGHT SIDEBAR ────────────────────── */
 
+function formatDims(it: ItemDraft): string | null {
+  const parts = [it.length, it.width, it.height];
+  if (parts.every((p) => p === "")) return null;
+  return parts.map((p) => (p === "" ? "?" : p)).join("×") + " cm";
+}
+
 function Sidebar({ data }: { data: FormData }) {
+  const filledItems = data.items.filter((it) => it.type !== "");
   return (
     <aside className="hidden w-[380px] shrink-0 border-l border-sky-200 bg-sky-100 md:block">
       <div className="sticky top-14 px-7 py-10">
@@ -455,7 +639,9 @@ function Sidebar({ data }: { data: FormData }) {
           Jouw aanvraag
         </div>
         <h3 className="mt-2 text-[26px] font-bold leading-tight tracking-tight text-navy">
-          {data.jobType || "Lift huren"}
+          {filledItems.length > 0
+            ? `${filledItems.length} ${filledItems.length === 1 ? "object" : "objecten"}`
+            : "Lift huren"}
         </h3>
         {data.description && (
           <p className="mt-2 text-[13px] text-ink-2">{data.description}</p>
@@ -483,6 +669,21 @@ function Sidebar({ data }: { data: FormData }) {
             {data.date ? `${formatDateLong(data.date)}` : <span className="text-slate-500">—</span>}
             {data.timeSlot && <span className="ml-1 text-ink-2">· {data.timeSlot}</span>}
           </Row>
+          {filledItems.length > 0 && (
+            <Row icon={<Package size={14} />} label="Objecten">
+              <ul className="space-y-0.5">
+                {filledItems.map((it) => {
+                  const dims = formatDims(it);
+                  return (
+                    <li key={it.id}>
+                      {it.type}
+                      {dims && <span className="text-ink-3"> · {dims}</span>}
+                    </li>
+                  );
+                })}
+              </ul>
+            </Row>
+          )}
           {data.heaviestObjectKg !== "" && (
             <Row icon={<Weight size={14} />} label="Zwaarste object">
               {data.heaviestObjectKg} kg
