@@ -24,6 +24,7 @@ export interface Booking {
   customerPhone: string;
   items: BookingItem[];
   siteConditions: string[];
+  photos: string[];
   description: string | null;
   heaviestObjectKg: number | null;
   floor: number;

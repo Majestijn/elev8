@@ -62,6 +62,8 @@ class BookingController extends Controller
             'heightMeters' => ['nullable', 'integer', 'min:1', 'max:300'],
             'siteConditions' => ['nullable', 'array'],
             'siteConditions.*' => ['string', Rule::in(self::SITE_CONDITIONS)],
+            'photos' => ['nullable', 'array', 'max:5'],
+            'photos.*' => ['file', 'mimes:jpeg,jpg,png,webp', 'max:8192'],
         ], [
             'customerName.required' => 'Vul je naam in.',
             'customerName.min' => 'Vul je volledige naam in.',
@@ -79,7 +81,16 @@ class BookingController extends Controller
             'heaviestObjectKg.required' => 'Geef een schatting van het gewicht.',
             'floor.required' => 'Kies naar welke verdieping de lift moet.',
             'floor.between' => 'Kies een verdieping tussen 1 en 20.',
+            'photos.max' => 'Je kunt maximaal 5 foto’s uploaden.',
+            'photos.*.mimes' => 'Alleen JPG-, PNG- of WEBP-afbeeldingen.',
+            'photos.*.max' => 'Elke foto mag maximaal 8 MB zijn.',
         ]);
+
+        // Bewaar de foto's op de geconfigureerde disk (lokaal 'public', later bucket).
+        $photoPaths = [];
+        foreach ($request->file('photos', []) as $photo) {
+            $photoPaths[] = $photo->store('booking-photos', config('elev8.photo_disk'));
+        }
 
         $booking = Booking::create([
             'code' => $this->generateCode(),
@@ -88,6 +99,7 @@ class BookingController extends Controller
             'customer_phone' => trim($validated['customerPhone']),
             'items' => $this->normalizeItems($validated['items']),
             'site_conditions' => array_values($validated['siteConditions'] ?? []),
+            'photos' => $photoPaths,
             'description' => isset($validated['description']) ? trim($validated['description']) : null,
             'heaviest_object_kg' => $validated['heaviestObjectKg'],
             'floor' => $validated['floor'],

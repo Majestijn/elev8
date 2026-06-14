@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Head, Link, router, useForm, usePage } from "@inertiajs/react";
 import {
   ArrowRight,
@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   Hammer,
+  ImagePlus,
   Info,
   Music,
   Package,
@@ -16,6 +17,7 @@ import {
   Sparkles,
   Truck,
   WashingMachine,
+  X,
 } from "lucide-react";
 import {
   CustomerInput,
@@ -40,6 +42,7 @@ const STEP_LABELS = [
 ];
 
 const FLOOR_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1);
+const MAX_PHOTOS = 5;
 
 const JOB_OPTIONS: Array<{
   value: JobType;
@@ -92,6 +95,7 @@ interface FormData {
   heightMeters: number | "";
   items: ItemDraft[];
   siteConditions: string[];
+  photos: File[];
   description: string;
   heaviestObjectKg: number | "";
 }
@@ -116,6 +120,7 @@ export default function BookingFlow() {
       heightMeters: "",
       items: [],
       siteConditions: [],
+      photos: [],
       description: "",
       heaviestObjectKg: "",
     });
@@ -248,7 +253,11 @@ export default function BookingFlow() {
                 />
               )}
               {step === 4 && (
-                <StepLocation data={data} onToggle={toggleCondition} />
+                <StepLocation
+                  data={data}
+                  setData={setData}
+                  onToggle={toggleCondition}
+                />
               )}
               {step === 5 && <StepReview data={data} onEdit={setStep} />}
             </div>
@@ -696,36 +705,131 @@ function DimInput({
 
 function StepLocation({
   data,
+  setData,
   onToggle,
 }: {
   data: FormData;
+  setData: SetData;
   onToggle: (key: string) => void;
 }) {
+  function addPhotos(files: FileList | null) {
+    if (!files) return;
+    setData(
+      "photos",
+      [...data.photos, ...Array.from(files)].slice(0, MAX_PHOTOS)
+    );
+  }
+  function removePhoto(index: number) {
+    setData(
+      "photos",
+      data.photos.filter((_, i) => i !== index)
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <CustomerLabel>Zijn er obstakels rond de plek waar de lift komt?</CustomerLabel>
+        <p className="mt-1 text-[12px] text-slate-500">
+          Selecteer wat van toepassing is. Niets aanvinken mag ook.
+        </p>
+
+        <div className="mt-3 flex flex-col gap-3">
+          {SITE_CONDITIONS.map((c) => (
+            <ConditionCard
+              key={c.key}
+              condition={c}
+              selected={data.siteConditions.includes(c.key)}
+              onToggle={() => onToggle(c.key)}
+            />
+          ))}
+        </div>
+
+        <div className="mt-4 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] text-ink-2">
+          <Info size={16} className="mt-0.5 shrink-0 text-blue" />
+          <span>
+            Geen bijzonderheden? Ga gewoon verder — UrbanLift neemt voor de
+            zekerheid altijd nog contact met je op.
+          </span>
+        </div>
+      </div>
+
+      <PhotoUploader
+        photos={data.photos}
+        onAdd={addPhotos}
+        onRemove={removePhoto}
+      />
+    </div>
+  );
+}
+
+function PhotoUploader({
+  photos,
+  onAdd,
+  onRemove,
+}: {
+  photos: File[];
+  onAdd: (files: FileList | null) => void;
+  onRemove: (index: number) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const full = photos.length >= MAX_PHOTOS;
+
   return (
     <div>
-      <CustomerLabel>Zijn er obstakels rond de plek waar de lift komt?</CustomerLabel>
+      <CustomerLabel>Foto's van de situatie (optioneel)</CustomerLabel>
       <p className="mt-1 text-[12px] text-slate-500">
-        Selecteer wat van toepassing is. Niets aanvinken mag ook.
+        Een foto van de straat en de gevel of het balkon helpt UrbanLift de
+        juiste lift en opstelling te kiezen. Maximaal {MAX_PHOTOS} foto's.
       </p>
 
-      <div className="mt-3 flex flex-col gap-3">
-        {SITE_CONDITIONS.map((c) => (
-          <ConditionCard
-            key={c.key}
-            condition={c}
-            selected={data.siteConditions.includes(c.key)}
-            onToggle={() => onToggle(c.key)}
-          />
-        ))}
-      </div>
+      {photos.length > 0 && (
+        <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4">
+          {photos.map((file, i) => (
+            <div
+              key={i}
+              className="relative aspect-square overflow-hidden rounded-xl border-2 border-slate-200"
+            >
+              <img
+                src={URL.createObjectURL(file)}
+                alt={`Foto ${i + 1}`}
+                className="h-full w-full object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => onRemove(i)}
+                aria-label="Foto verwijderen"
+                className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-navy/70 text-white transition-colors hover:bg-navy"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
-      <div className="mt-6 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] text-ink-2">
-        <Info size={16} className="mt-0.5 shrink-0 text-blue" />
-        <span>
-          Geen bijzonderheden? Ga gewoon verder — UrbanLift neemt voor de
-          zekerheid altijd nog contact met je op.
-        </span>
-      </div>
+      {!full && (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 px-4 py-6 text-[14px] font-semibold text-blue transition-colors hover:border-blue/50 hover:bg-sky-50"
+        >
+          <ImagePlus size={18} />
+          Foto's toevoegen
+        </button>
+      )}
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          onAdd(e.target.files);
+          e.target.value = "";
+        }}
+      />
     </div>
   );
 }
@@ -881,15 +985,23 @@ function Sidebar({ data }: { data: FormData }) {
             </SidebarSection>
           )}
 
-          {data.siteConditions.length > 0 && (
+          {(data.siteConditions.length > 0 || data.photos.length > 0) && (
             <SidebarSection title="Locatie & toegang">
-              <SRow label="Bijzonderheden">
-                <ul className="space-y-0.5">
-                  {data.siteConditions.map((k) => (
-                    <li key={k}>{siteConditionTitle(k)}</li>
-                  ))}
-                </ul>
-              </SRow>
+              {data.siteConditions.length > 0 && (
+                <SRow label="Bijzonderheden">
+                  <ul className="space-y-0.5">
+                    {data.siteConditions.map((k) => (
+                      <li key={k}>{siteConditionTitle(k)}</li>
+                    ))}
+                  </ul>
+                </SRow>
+              )}
+              {data.photos.length > 0 && (
+                <SRow label="Foto's">
+                  {data.photos.length}{" "}
+                  {data.photos.length === 1 ? "foto" : "foto's"}
+                </SRow>
+              )}
             </SidebarSection>
           )}
         </div>
@@ -1008,6 +1120,20 @@ function StepReview({
             ? data.siteConditions.map((k) => siteConditionTitle(k)).join(" · ")
             : "Geen opgegeven"}
         </ReviewRow>
+        {data.photos.length > 0 && (
+          <ReviewRow label="Foto's">
+            <div className="flex flex-wrap gap-2">
+              {data.photos.map((file, i) => (
+                <img
+                  key={i}
+                  src={URL.createObjectURL(file)}
+                  alt={`Foto ${i + 1}`}
+                  className="h-14 w-14 rounded-lg border border-slate-200 object-cover"
+                />
+              ))}
+            </div>
+          </ReviewRow>
+        )}
       </ReviewSection>
     </div>
   );

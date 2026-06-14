@@ -6,6 +6,7 @@ import {
   Calendar,
   CheckCircle2,
   ClipboardList,
+  Image as ImageIcon,
   Inbox,
   Info,
   LogOut,
@@ -246,6 +247,21 @@ function RequestCard({ booking: b }: { booking: Booking }) {
         {b.description && (
           <Field icon={<Package size={14} />} label="Toelichting">
             {b.description}
+          </Field>
+        )}
+        {b.photos.length > 0 && (
+          <Field icon={<ImageIcon size={14} />} label="Foto's" className="sm:col-span-2">
+            <div className="mt-1 flex flex-wrap gap-2">
+              {b.photos.map((url, i) => (
+                <a key={i} href={url} target="_blank" rel="noreferrer">
+                  <img
+                    src={url}
+                    alt={`Foto ${i + 1}`}
+                    className="h-20 w-20 rounded-lg border border-slate-200 object-cover transition-opacity hover:opacity-90"
+                  />
+                </a>
+              ))}
+            </div>
           </Field>
         )}
       </div>

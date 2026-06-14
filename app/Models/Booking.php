@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Booking extends Model
 {
@@ -13,6 +14,7 @@ class Booking extends Model
         'customer_phone',
         'items',
         'site_conditions',
+        'photos',
         'description',
         'heaviest_object_kg',
         'floor',
@@ -29,6 +31,7 @@ class Booking extends Model
     protected $casts = [
         'items' => 'array',
         'site_conditions' => 'array',
+        'photos' => 'array',
         'preferred_date' => 'date',
         'handled_at' => 'datetime',
         'heaviest_object_kg' => 'integer',
@@ -51,6 +54,9 @@ class Booking extends Model
             'customerPhone' => $this->customer_phone,
             'items' => $this->items ?? [],
             'siteConditions' => $this->site_conditions ?? [],
+            'photos' => collect($this->photos ?? [])
+                ->map(fn (string $path) => Storage::disk(config('elev8.photo_disk'))->url($path))
+                ->all(),
             'description' => $this->description,
             'heaviestObjectKg' => $this->heaviest_object_kg,
             'floor' => $this->floor,

@@ -21,6 +21,8 @@ return new class extends Migration
             $table->jsonb('items');
             // Locatie-bijzonderheden als JSON-array van keys: ["trees", "cables", ...]
             $table->jsonb('site_conditions')->nullable();
+            // Geüploade situatiefoto's als JSON-array van opslagpaden
+            $table->jsonb('photos')->nullable();
             $table->text('description')->nullable();
             $table->unsignedInteger('heaviest_object_kg')->nullable();
 

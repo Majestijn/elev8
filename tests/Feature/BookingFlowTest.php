@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\Booking;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -173,6 +175,38 @@ class BookingFlowTest extends TestCase
             ->post('/', $this->validPayload(['siteConditions' => ['lava']]))
             ->assertRedirect('/')
             ->assertSessionHasErrors('siteConditions.0');
+
+        $this->assertDatabaseCount('bookings', 0);
+    }
+
+    public function test_customer_can_upload_situation_photos(): void
+    {
+        Storage::fake('public');
+
+        $this->post('/', $this->validPayload([
+            'photos' => [
+                UploadedFile::fake()->create('straat.jpg', 200, 'image/jpeg'),
+                UploadedFile::fake()->create('gevel.png', 200, 'image/png'),
+            ],
+        ]))->assertRedirect('/');
+
+        $booking = Booking::first();
+        $this->assertCount(2, $booking->photos);
+        Storage::disk('public')->assertExists($booking->photos[0]);
+    }
+
+    public function test_non_image_upload_is_rejected(): void
+    {
+        Storage::fake('public');
+
+        $this->from('/')
+            ->post('/', $this->validPayload([
+                'photos' => [
+                    UploadedFile::fake()->create('document.pdf', 100, 'application/pdf'),
+                ],
+            ]))
+            ->assertRedirect('/')
+            ->assertSessionHasErrors('photos.0');
 
         $this->assertDatabaseCount('bookings', 0);
     }
