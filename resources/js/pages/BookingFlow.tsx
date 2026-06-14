@@ -2,26 +2,20 @@ import { useState } from "react";
 import { Head, Link, router, useForm, usePage } from "@inertiajs/react";
 import {
   ArrowRight,
-  Calendar as CalendarIcon,
   Check,
   CheckCircle2,
   ChevronLeft,
   Hammer,
   Info,
-  Mail,
-  MapPin,
   Music,
   Package,
   PackageOpen,
-  Phone,
   Refrigerator,
   Shield,
   Sofa,
   Sparkles,
   Truck,
-  User,
   WashingMachine,
-  Weight,
 } from "lucide-react";
 import {
   CustomerInput,
@@ -769,58 +763,36 @@ function formatDims(it: ItemDraft): string | null {
 
 function Sidebar({ data }: { data: FormData }) {
   const items = data.items;
+  const dash = <span className="text-slate-400">—</span>;
+  const address =
+    [data.postcode, data.street, data.city].filter(Boolean).join(" · ") || null;
+
   return (
-    <aside className="hidden w-[380px] shrink-0 border-l border-sky-200 bg-sky-100 md:block">
-      <div className="sticky top-14 px-7 py-10">
-        <div className="text-[12px] font-bold uppercase tracking-[0.12em] text-blue">
+    <aside className="hidden w-[360px] shrink-0 border-l border-sky-200 bg-sky-100 md:block">
+      <div className="sticky top-14 px-6 py-6">
+        <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-blue">
           Jouw aanvraag
         </div>
-        <h3 className="mt-2 text-[26px] font-bold leading-tight tracking-tight text-navy">
-          {items.length > 0
-            ? `${items.length} ${items.length === 1 ? "object" : "objecten"}`
-            : "Lift huren"}
-        </h3>
-        {data.description && (
-          <p className="mt-2 text-[13px] text-ink-2">{data.description}</p>
-        )}
 
-        <div className="mt-7 space-y-6">
+        <div className="mt-3 space-y-2.5">
           <SidebarSection title="Jouw gegevens">
-            <Row icon={<User size={14} />} label="Naam">
-              {data.customerName || <span className="text-slate-500">—</span>}
-            </Row>
-            <Row icon={<Phone size={14} />} label="Telefoon">
-              {data.customerPhone || <span className="text-slate-500">—</span>}
-            </Row>
-            {data.customerEmail && (
-              <Row icon={<Mail size={14} />} label="E-mail">
-                {data.customerEmail}
-              </Row>
-            )}
-            <Row icon={<MapPin size={14} />} label="Adres">
-              {data.postcode ? (
-                <>
-                  {data.postcode}
-                  {data.street ? ` · ${data.street}` : ""}
-                  {data.city ? ` · ${data.city}` : ""}
-                </>
-              ) : (
-                <span className="text-slate-500">—</span>
-              )}
-            </Row>
+            <SRow label="Naam">{data.customerName || dash}</SRow>
+            <SRow label="Telefoon">{data.customerPhone || dash}</SRow>
+            {data.customerEmail && <SRow label="E-mail">{data.customerEmail}</SRow>}
+            <SRow label="Adres">{address ?? dash}</SRow>
           </SidebarSection>
 
           <SidebarSection title="Datum & tijd">
-            <Row icon={<CalendarIcon size={14} />} label="Wanneer">
-              {data.date ? `${formatDateLong(data.date)}` : <span className="text-slate-500">—</span>}
-              {data.timeSlot && <span className="ml-1 text-ink-2">· {data.timeSlot}</span>}
-            </Row>
+            <SRow label="Wanneer">
+              {data.date ? formatDateLong(data.date) : dash}
+              {data.timeSlot ? ` · ${data.timeSlot}` : ""}
+            </SRow>
           </SidebarSection>
 
           {(items.length > 0 || data.heaviestObjectKg !== "") && (
             <SidebarSection title="Wat moet er omhoog">
               {items.length > 0 && (
-                <Row icon={<Package size={14} />} label="Objecten">
+                <SRow label="Objecten">
                   <ul className="space-y-0.5">
                     {items.map((it) => {
                       const dims = formatDims(it);
@@ -832,59 +804,44 @@ function Sidebar({ data }: { data: FormData }) {
                       );
                     })}
                   </ul>
-                </Row>
+                </SRow>
               )}
               {data.heaviestObjectKg !== "" && (
-                <Row icon={<Weight size={14} />} label="Zwaarste object">
-                  {data.heaviestObjectKg} kg
-                </Row>
+                <SRow label="Zwaarste">{data.heaviestObjectKg} kg</SRow>
               )}
             </SidebarSection>
           )}
 
           {data.siteConditions.length > 0 && (
             <SidebarSection title="Locatie & toegang">
-              <Row icon={<Info size={14} />} label="Bijzonderheden">
+              <SRow label="Bijzonderheden">
                 <ul className="space-y-0.5">
                   {data.siteConditions.map((k) => (
                     <li key={k}>{siteConditionTitle(k)}</li>
                   ))}
                 </ul>
-              </Row>
+              </SRow>
             </SidebarSection>
           )}
         </div>
 
-        <div className="mt-8 flex items-start gap-3 rounded-xl bg-white/60 px-4 py-3 text-[12px] text-ink-2">
-          <Shield size={14} className="mt-0.5 shrink-0 text-green" />
+        <p className="mt-3 flex items-start gap-2 px-1 text-[11px] leading-snug text-ink-3">
+          <Shield size={13} className="mt-0.5 shrink-0 text-green" />
           <span>
-            Na het versturen neemt UrbanLift persoonlijk contact met je op om de
-            details en prijs af te stemmen. Je zit nog nergens aan vast.
+            UrbanLift neemt na het versturen contact op om de details en prijs af
+            te stemmen.
           </span>
-        </div>
+        </p>
       </div>
     </aside>
   );
 }
 
-function Row({
-  icon,
-  label,
-  children,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  children: React.ReactNode;
-}) {
+function SRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-3">
-      <span className="mt-0.5 text-blue">{icon}</span>
-      <div className="flex-1">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">
-          {label}
-        </div>
-        <div className="text-navy">{children}</div>
-      </div>
+    <div className="flex gap-2.5 text-[12.5px] leading-snug">
+      <span className="w-[64px] shrink-0 text-slate-500">{label}</span>
+      <span className="flex-1 text-navy">{children}</span>
     </div>
   );
 }
@@ -897,13 +854,11 @@ function SidebarSection({
   children: React.ReactNode;
 }) {
   return (
-    <div>
-      <div className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-blue/80">
+    <div className="rounded-xl bg-white/60 px-3.5 py-2.5">
+      <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-blue/70">
         {title}
       </div>
-      <div className="space-y-3.5 rounded-xl bg-white/60 px-4 py-3.5 text-[13px]">
-        {children}
-      </div>
+      <div className="mt-1.5 space-y-1.5">{children}</div>
     </div>
   );
 }
