@@ -67,8 +67,10 @@ function tomorrowISO() {
   return t.toISOString().slice(0, 10);
 }
 
-interface FlashProps {
+interface PageProps {
   flash?: { bookingCode?: string | null };
+  /** Alleen true in debug-modus; toont de testdata-knop. */
+  appDebug?: boolean;
 }
 
 interface FormData {
@@ -88,7 +90,7 @@ interface FormData {
 type SetData = <K extends keyof FormData>(key: K, value: FormData[K]) => void;
 
 export default function BookingFlow() {
-  const { flash } = usePage<FlashProps>().props;
+  const { flash, appDebug } = usePage<PageProps>().props;
   const [step, setStep] = useState<Step>(0);
 
   const { data, setData, post, processing, errors, transform } =
@@ -116,6 +118,19 @@ export default function BookingFlow() {
   }
   function back() {
     setStep((s) => Math.max(0, s - 1) as Step);
+  }
+
+  // Dev-gemak: vul stap 1 met testgegevens (alleen zichtbaar in debug-modus).
+  function fillTestData() {
+    setData((prev) => ({
+      ...prev,
+      customerName: "Test Klant",
+      customerEmail: "test@voorbeeld.nl",
+      customerPhone: "+31 6 12345678",
+      postcode: "1015 CW",
+      street: "Prinsengracht 412",
+      city: "Amsterdam",
+    }));
   }
 
   /* ── object-selectie (multi-select) ── */
@@ -182,7 +197,20 @@ export default function BookingFlow() {
           <div className="mx-auto w-full max-w-[720px] flex-1 px-6 py-10 md:py-14">
             <StepHeading step={step} />
             <div className="mt-8">
-              {step === 0 && <StepDetails data={data} setData={setData} errors={errors} />}
+              {step === 0 && (
+                <>
+                  {appDebug && (
+                    <button
+                      type="button"
+                      onClick={fillTestData}
+                      className="mb-5 inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-[12px] font-semibold text-amber-700 transition-colors hover:bg-amber-100"
+                    >
+                      ⚡ Testgegevens invullen
+                    </button>
+                  )}
+                  <StepDetails data={data} setData={setData} errors={errors} />
+                </>
+              )}
               {step === 1 && <StepWhen data={data} setData={setData} />}
               {step === 2 && (
                 <StepJob

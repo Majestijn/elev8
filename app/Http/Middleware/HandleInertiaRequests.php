@@ -35,6 +35,8 @@ class HandleInertiaRequests extends Middleware
             'elev8' => [
                 'authed' => (bool) $request->session()->get('elev8_authed', false),
             ],
+            // Alleen aan in debug-modus → demo-/testknoppen verschijnen niet in productie.
+            'appDebug' => (bool) config('app.debug'),
         ];
     }
 }
