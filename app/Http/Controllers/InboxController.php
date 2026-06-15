@@ -101,6 +101,16 @@ class InboxController extends Controller
         return back();
     }
 
+    /** Verwijder een aanvraag definitief uit de inbox. */
+    public function destroy(Request $request, Booking $booking): RedirectResponse
+    {
+        abort_unless($this->authed($request), 403);
+
+        $booking->delete();
+
+        return back();
+    }
+
     private function authed(Request $request): bool
     {
         return (bool) $request->session()->get('inbox_authed', false);

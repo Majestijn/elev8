@@ -4,11 +4,11 @@ set -e
 
 cd /var/www/html
 
-# LET OP: migrate:fresh DROPT de hele database bij elke deploy (alle data weg).
-# Bewust gekozen tijdens de MVP-fase (alleen testdata). Vóór echte klanten
-# terugzetten naar `php artisan migrate --force` + incrementele migraties.
-echo "[urbanlift] Running fresh database migration (DROPT alle data!)…"
-php artisan migrate:fresh --force
+# Incrementele migraties: alleen nog-niet-gedraaide migraties worden uitgevoerd,
+# bestaande data blijft staan. (Voorheen migrate:fresh, dat DROPTE alle data bij
+# elke deploy — niet meer gewenst nu er echte boekingen binnenkomen.)
+echo "[urbanlift] Running database migrations (incrementeel, data blijft)…"
+php artisan migrate --force
 
 echo "[urbanlift] Linking storage (voor lokale public-foto's)…"
 php artisan storage:link || true

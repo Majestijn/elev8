@@ -23,3 +23,5 @@ Route::post('/beheer/aanvragen/{booking}/status', [InboxController::class, 'upda
     ->name('beheer.status');
 Route::post('/beheer/aanvragen/{booking}/duur', [InboxController::class, 'updateDuration'])
     ->name('beheer.duration');
+Route::delete('/beheer/aanvragen/{booking}', [InboxController::class, 'destroy'])
+    ->name('beheer.destroy');

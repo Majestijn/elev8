@@ -125,6 +125,14 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** Uiterste boekdatum: maximaal twee jaar vooruit. */
+function maxDateISO() {
+  const t = new Date();
+  t.setFullYear(t.getFullYear() + 2);
+  t.setHours(0, 0, 0, 0);
+  return t.toISOString().slice(0, 10);
+}
+
 interface PageProps {
   flash?: { bookingCode?: string | null };
   /** Alleen true in debug-modus; toont de testdata-knop. */
@@ -567,6 +575,7 @@ function StepWhen({
           type="date"
           value={data.date}
           min={todayISO()}
+          max={maxDateISO()}
           onChange={(e) => setData("date", e.target.value)}
           className="mt-2 max-w-[260px]"
         />
